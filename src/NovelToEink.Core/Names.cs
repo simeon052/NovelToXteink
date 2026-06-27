@@ -21,6 +21,7 @@ public static class NameFormatter
 
     public static string Sanitize(string s)
     {
+        s = s.Replace('　', ' ');   // 全角スペース → 半角スペース
         foreach (var c in Path.GetInvalidFileNameChars()) s = s.Replace(c, '_');
         s = s.Trim();
         return string.IsNullOrEmpty(s) ? "novel" : s;
