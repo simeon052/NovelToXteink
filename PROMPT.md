@@ -106,6 +106,16 @@ OEBPS/ep_0001.xhtml ... ep_NNNN.xhtml  ← 1話 = 1 XHTML
 OEBPS/images/img_XXXX.jpg  ← 挿絵（エピソードインデックス_連番）
 ```
 
+**縦書きに必要な設定（2箇所）**:
+1. `content.opf` の `<spine>` に `page-progression-direction="rtl"` を付ける（**これがないとX3が横書きとして扱う**）
+2. CSS で `html` と `body` の両方に `writing-mode:vertical-rl` を指定（`html` だけでは継承しないリーダーが存在する）
+
+**nav.xhtml の章・話タイトル**: 出力前に全角スペース（U+3000）を半角スペースに変換する。
+
+**PatchVertical**: 既存EPUBを再ダウンロードせずインプレースでパッチするメソッドも実装する。
+ZipArchive を Read モードで読み、新しい zip に `style.css`/`content.opf`/`nav.xhtml` だけ差し替えて書き出し、
+元ファイルと入れ替える。`mimetype` エントリだけは `NoCompression` を維持する。
+
 - **分割**: `EpisodesPerFile`（既定200）話ごとに別EPUBファイルを生成（`BuildSplit`）
 - **ファイル名**: `NameFormatter.Format(template, title, author, part, partCount)`
   - デフォルトテンプレート: `{title}-{part}-{author}`
@@ -231,6 +241,11 @@ NovelToEink.Cli <URL> [out.epub] [--max N] [--yoko] [--no-images] [--gray-off]
 - 失敗時: `Register-ScheduledTask` で90分後に自己再試行（`Environment.ProcessPath` で自分を再スケジュール）
 - 全成功でタスク解除（`Unregister-ScheduledTask`）
 
+**patchモード** (`patch [folder]`):
+- 再ダウンロードなしで既存EPUBを縦書き設定にインプレースパッチ
+- `folder` 省略時は `AppSettings.Load().OutputFolder` を使用
+- `LibraryService.PatchAllVertical` → `EpubBuilder.PatchVertical` を各ファイルに適用
+
 ---
 
 ## ハマりどころ（必読）
@@ -282,6 +297,14 @@ EPUB 仕様上、`mimetype` エントリは ZIP 圧縮なし（`NoCompression`�
 なろう作品タイトルには「　」（U+3000 全角スペース）が含まれることがある。
 ファイル名としては正しく表示されないため、`NameFormatter.Sanitize` で
 `Path.GetInvalidFileNameChars()` を処理する前に `'　' → ' '` に置換する。
+
+### 9. EPUB縦書きは CSS だけでは不十分
+
+`style.css` に `html { writing-mode: vertical-rl; }` を書いても、
+**`content.opf` の `<spine>` に `page-progression-direction="rtl"` がなければ**
+Xteink X3 等の端末は横書きとして扱う。必ず両方を設定する。
+さらに `body` は `html` から `writing-mode` を継承しないリーダーが存在するため、
+`body { writing-mode: vertical-rl; }` も明示的に書く。
 
 ---
 

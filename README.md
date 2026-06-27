@@ -83,6 +83,15 @@ dotnet run --project src/NovelToEink.Cli -- <URL> out.epub \
 | `--cover official\|generated\|none\|<index>` | 表紙の選び方 |
 | `--list` | メタ情報と目次の表示のみ |
 
+### 縦書き一括パッチ
+
+既存の EPUB を**再ダウンロードせず**縦書き設定に差し替える（`style.css` / `content.opf` / `nav.xhtml` のみ更新）。
+
+```bash
+NovelToEink.Cli.exe patch              # settings.json の OutputFolder を使用
+NovelToEink.Cli.exe patch "C:\path\to\folder"
+```
+
 ## Xteink X3 向け最適化
 
 CrossPoint-JP での知見（巨大CSSのRAM展開でメモリエラー）を踏まえ、以下を既定とする。
