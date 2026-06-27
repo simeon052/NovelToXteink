@@ -223,4 +223,28 @@ public sealed class LibraryService
         foreach (var c in Path.GetInvalidFileNameChars()) s = s.Replace(c, '_');
         return s.Trim();
     }
+
+    /// <summary>
+    /// ライブラリ内の全EPUBを縦書き・目次全角スペース修正でパッチする（再ダウンロードなし）。
+    /// </summary>
+    public void PatchAllVertical(IProgress<string>? progress = null)
+    {
+        foreach (var entry in Entries)
+        {
+            foreach (var path in entry.EpubParts.Where(File.Exists))
+            {
+                progress?.Report($"パッチ中: {Path.GetFileName(path)}");
+                try
+                {
+                    entry.Options.WritingMode = WritingMode.Vertical;
+                    EpubBuilder.PatchVertical(path, entry.Options);
+                }
+                catch (Exception ex)
+                {
+                    progress?.Report($"スキップ: {Path.GetFileName(path)} ({ex.Message})");
+                }
+            }
+        }
+        Persist();
+    }
 }

@@ -270,12 +270,12 @@ public static partial class EpubBuilder
                 currentChapter = it.Chapter;
                 if (!string.IsNullOrWhiteSpace(currentChapter))
                 {
-                    sb.Append("<li><span>").Append(XhtmlSanitizer.XmlEscape(currentChapter!)).Append("</span>\n<ol>\n");
+                    sb.Append("<li><span>").Append(XhtmlSanitizer.XmlEscape(currentChapter!.Replace('　', ' '))).Append("</span>\n<ol>\n");
                     inChapterListOpen = true;
                 }
             }
             sb.Append("<li><a href=\"").Append(it.File).Append("\">")
-              .Append(XhtmlSanitizer.XmlEscape(it.Title)).Append("</a></li>\n");
+              .Append(XhtmlSanitizer.XmlEscape(it.Title.Replace('　', ' '))).Append("</a></li>\n");
         }
         if (inChapterListOpen) sb.Append("</ol></li>\n");
 
@@ -321,7 +321,8 @@ public static partial class EpubBuilder
         }
         sb.Append("  </manifest>\n");
 
-        sb.Append("  <spine>\n");
+        var pageDir = opt.WritingMode == WritingMode.Vertical ? " page-progression-direction=\"rtl\"" : "";
+        sb.Append($"  <spine{pageDir}>\n");
         if (hasCover) sb.Append("    <itemref idref=\"cover-page\"/>\n");
         foreach (var s in spine) sb.Append(s).Append('\n');
         sb.Append("  </spine>\n");
@@ -343,7 +344,9 @@ public static partial class EpubBuilder
         sb.Append("html{");
         if (vertical) sb.Append("-epub-writing-mode:vertical-rl;writing-mode:vertical-rl;");
         sb.Append("}\n");
-        sb.Append($"body{{margin:0;padding:1em;line-height:1.8;font-size:{opt.BaseFontPercent}%;}}\n");
+        sb.Append($"body{{margin:0;padding:1em;line-height:1.8;font-size:{opt.BaseFontPercent}%;");
+        if (vertical) sb.Append("writing-mode:vertical-rl;");
+        sb.Append("}}\n");
         sb.Append("h1.ep-title{font-size:1.3em;line-height:1.4;margin:0 0 1.2em;}\n");
         sb.Append("p{margin:0;text-indent:1em;}\n");
         sb.Append("hr{border:0;border-top:1px solid #888;margin:1em 0;}\n");
@@ -367,10 +370,67 @@ public static partial class EpubBuilder
         s.Write(bytes, 0, bytes.Length);
     }
 
-    private static void WriteEntryBytes(ZipArchive zip, string path, byte[] content)
+    private static void WriteEntryBytes(ZipArchive zip, string path, byte[] content,
+        CompressionLevel level = CompressionLevel.Optimal)
     {
-        var entry = zip.CreateEntry(path, CompressionLevel.Optimal);
+        var entry = zip.CreateEntry(path, level);
         using var s = entry.Open();
         s.Write(content, 0, content.Length);
+    }
+
+    /// <summary>
+    /// 既存EPUBを縦書き設定・目次全角スペース修正でインプレースパッチする。
+    /// 再ダウンロード不要。style.css / content.opf / nav.xhtml のみ差し替え。
+    /// </summary>
+    public static void PatchVertical(string epubPath, EpubOptions opt)
+    {
+        var tmp = epubPath + ".tmp";
+        try
+        {
+            using (var srcFs = new FileStream(epubPath, FileMode.Open, FileAccess.Read, FileShare.Read))
+            using (var srcZip = new ZipArchive(srcFs, ZipArchiveMode.Read))
+            using (var dstFs = new FileStream(tmp, FileMode.Create))
+            using (var dstZip = new ZipArchive(dstFs, ZipArchiveMode.Create))
+            {
+                foreach (var entry in srcZip.Entries)
+                {
+                    var name = entry.FullName;
+                    var level = name == "mimetype" ? CompressionLevel.NoCompression : CompressionLevel.Optimal;
+
+                    using var srcStream = entry.Open();
+                    using var ms = new MemoryStream();
+                    srcStream.CopyTo(ms);
+                    var bytes = ms.ToArray();
+
+                    string? patched = null;
+                    if (name == "OEBPS/style.css")
+                    {
+                        patched = StyleCss(opt);
+                    }
+                    else if (name == "OEBPS/content.opf")
+                    {
+                        var opf = Encoding.UTF8.GetString(bytes);
+                        if (!opf.Contains("page-progression-direction"))
+                            opf = opf.Replace("<spine>", "<spine page-progression-direction=\"rtl\">");
+                        patched = opf;
+                    }
+                    else if (name == "OEBPS/nav.xhtml")
+                    {
+                        patched = Encoding.UTF8.GetString(bytes).Replace("　", " ");
+                    }
+
+                    if (patched != null)
+                        WriteEntry(dstZip, name, patched, level);
+                    else
+                        WriteEntryBytes(dstZip, name, bytes, level);
+                }
+            }
+            File.Move(tmp, epubPath, overwrite: true);
+        }
+        catch
+        {
+            if (File.Exists(tmp)) File.Delete(tmp);
+            throw;
+        }
     }
 }
