@@ -93,9 +93,6 @@
                                 Command="{Binding CheckAllCommand}"/>
                         <Button Style="{StaticResource Accent}" Content="⬆ 更新をまとめて適用" Margin="8,0,0,0"
                                 Command="{Binding UpdateAllCommand}"/>
-                        <Button Style="{StaticResource Ghost}" Content="↕ 縦書きに一括更新" Margin="8,0,0,0"
-                                Command="{Binding PatchAllVerticalCommand}"
-                                ToolTip="既存EPUBを再ダウンロードせず縦書き設定に差し替えます。"/>
                     </StackPanel>
                 </Grid>
             </StackPanel>

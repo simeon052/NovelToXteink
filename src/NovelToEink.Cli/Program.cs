@@ -53,6 +53,13 @@ if (args[0] == "libtest")
     return await LibTest(args);
 }
 
+// 縦書きパッチ: 既存EPUBを再ダウンロードせず縦書き設定に差し替える。
+//   NovelToEink.Cli patch [folder]   (folder省略時は settings.json の OutputFolder を使用)
+if (args[0] == "patch")
+{
+    return PatchVertical(args);
+}
+
 var url = args[0];
 string? output = args.Length > 1 && !args[1].StartsWith("--") ? args[1] : null;
 var maxEpisodes = GetIntOpt("--max", 0);
@@ -276,6 +283,30 @@ static void ScheduleRetry(string folder, List<string> urls)
         $"Write-Output 'scheduled'";
     var ok = RunPowerShell(script);
     Console.WriteLine(ok ? "  再試行タスクを登録しました（NovelToEink_Batch_Retry）。" : "  再試行タスクの登録に失敗しました。");
+}
+
+static int PatchVertical(string[] a)
+{
+    var settings = NovelToEink.Core.AppSettings.Load();
+    if (a.Length > 1) settings.OutputFolder = a[1];
+    var folder = settings.OutputFolder;
+
+    Console.WriteLine($"=== 縦書きパッチ : {folder} ===");
+    if (!Directory.Exists(folder)) { Console.Error.WriteLine($"フォルダが存在しません: {folder}"); return 1; }
+
+    var svc = new NovelToEink.Core.LibraryService(settings);
+    if (svc.Entries.Count == 0) { Console.WriteLine("ライブラリにエントリがありません。"); return 0; }
+
+    var patched = 0;
+    var errors = 0;
+    svc.PatchAllVertical(new Progress<string>(msg =>
+    {
+        Console.WriteLine(msg.StartsWith("パッチ中:") ? $"  {msg}" : $"  [!] {msg}");
+        if (msg.StartsWith("パッチ中:")) patched++;
+        else if (msg.StartsWith("スキップ:")) errors++;
+    }));
+    Console.WriteLine($"=== 完了: {patched} ファイルを縦書きにパッチ。エラー: {errors} ===");
+    return 0;
 }
 
 static bool RunPowerShell(string script)

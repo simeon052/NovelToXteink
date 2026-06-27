@@ -43,7 +43,6 @@ public sealed class MainViewModel : ViewModelBase
         CopyTitleCommand = new RelayCommand<LibraryItemVm>(CopyTitle);
         OpenUrlCommand = new RelayCommand<LibraryItemVm>(OpenUrl);
         ToggleDarkModeCommand = new RelayCommand(ToggleDarkMode);
-        PatchAllVerticalCommand = new AsyncRelayCommand(PatchAllVerticalAsync, () => !IsBusy && Items.Count > 0);
     }
 
     // ---- 入力・オプション ----
@@ -157,7 +156,6 @@ public sealed class MainViewModel : ViewModelBase
     public RelayCommand<LibraryItemVm> CopyTitleCommand { get; }
     public RelayCommand<LibraryItemVm> OpenUrlCommand { get; }
     public RelayCommand ToggleDarkModeCommand { get; }
-    public AsyncRelayCommand PatchAllVerticalCommand { get; }
 
     private EpubOptions Options => _settings.ToEpubOptions();
 
@@ -393,25 +391,6 @@ public sealed class MainViewModel : ViewModelBase
         if (item == null || string.IsNullOrEmpty(item.Url)) return;
         try { Process.Start(new ProcessStartInfo(item.Url) { UseShellExecute = true }); }
         catch (Exception ex) { StatusText = "ブラウザを開けません：" + ex.Message; }
-    }
-
-    private async Task PatchAllVerticalAsync()
-    {
-        IsBusy = true;
-        _cts = new CancellationTokenSource();
-        ProgressIndeterminate = true;
-        var count = 0;
-        try
-        {
-            await Task.Run(() => _service.PatchAllVertical(new Progress<string>(msg =>
-            {
-                StatusText = msg;
-                if (msg.StartsWith("パッチ中:")) count++;
-            })));
-            StatusText = $"縦書きパッチ完了：{count} ファイルを更新しました。";
-        }
-        catch (Exception ex) { StatusText = "パッチ失敗：" + ex.Message; }
-        finally { EndBusy(); }
     }
 
     private void ToggleDarkMode() => IsDarkMode = !IsDarkMode;
