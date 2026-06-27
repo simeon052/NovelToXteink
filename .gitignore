@@ -1,0 +1,13 @@
+## .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+
+## Published output — built separately
+**/publish/
+
+## OS
+Thumbs.db
+.DS_Store

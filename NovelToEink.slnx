@@ -1,0 +1,7 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/NovelToEink.App/NovelToEink.App.csproj" />
+    <Project Path="src/NovelToEink.Cli/NovelToEink.Cli.csproj" />
+    <Project Path="src/NovelToEink.Core/NovelToEink.Core.csproj" />
+  </Folder>
+</Solution>

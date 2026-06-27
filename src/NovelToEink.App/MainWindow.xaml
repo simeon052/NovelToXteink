@@ -1,0 +1,254 @@
+<Window x:Class="NovelToEink.App.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:NovelToEink.App"
+        mc:Ignorable="d"
+        Title="Novel To Xteink"
+        Height="820" Width="1100" MinHeight="640" MinWidth="940"
+        Background="{DynamicResource AppBg}" FontFamily="Yu Gothic UI" FontSize="13"
+        TextOptions.TextFormattingMode="Display" UseLayoutRounding="True">
+    <DockPanel Margin="18">
+
+        <!-- ヘッダー -->
+        <Grid DockPanel.Dock="Top" Margin="2,0,2,14">
+            <StackPanel>
+                <TextBlock Text="Novel To Xteink" FontSize="22" FontWeight="Bold"/>
+                <TextBlock Text="なろう / カクヨムの小説を Xteink X3 向け EPUB として管理・更新"
+                           Foreground="{DynamicResource Muted}" Margin="0,2,0,0"/>
+            </StackPanel>
+            <Button HorizontalAlignment="Right" VerticalAlignment="Top"
+                    Style="{StaticResource Ghost}" Padding="10,6"
+                    Content="{Binding DarkModeToggleLabel}"
+                    Command="{Binding ToggleDarkModeCommand}"
+                    ToolTip="ダーク / ライトモードを切り替えます"/>
+        </Grid>
+
+        <!-- 追加カード -->
+        <Border DockPanel.Dock="Top" Style="{StaticResource Card}" Margin="0,0,0,12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- 左: URL入力 -->
+                <StackPanel Grid.Column="0" Margin="0,0,14,0">
+                    <TextBlock Style="{StaticResource SectionTitle}" Text="作品URL（複数可・改行/スペース区切り）"/>
+                    <TextBox Style="{StaticResource Field}" Height="74" AcceptsReturn="True"
+                             TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"
+                             VerticalContentAlignment="Top"
+                             IsEnabled="{Binding IsNotBusy}"
+                             Text="{Binding UrlsText, UpdateSourceTrigger=PropertyChanged}"/>
+                </StackPanel>
+
+                <!-- 右: 追加ボタン -->
+                <StackPanel Grid.Column="1" VerticalAlignment="Bottom" Width="170">
+                    <Button Style="{StaticResource Accent}" Content="＋ ライブラリに追加"
+                            Command="{Binding AddCommand}" Height="40"/>
+                    <Button Style="{StaticResource Ghost}" Content="キャンセル" Margin="0,8,0,0"
+                            Command="{Binding CancelCommand}"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- オプション + フォルダ + 一括操作 -->
+        <Border DockPanel.Dock="Top" Style="{StaticResource Card}" Margin="0,0,0,12" Padding="14,10">
+            <StackPanel>
+                <WrapPanel IsEnabled="{Binding IsNotBusy}">
+                    <CheckBox Content="縦書き" IsChecked="{Binding Vertical}" Margin="0,0,16,0"/>
+                    <CheckBox Content="挿絵を含める" IsChecked="{Binding IncludeInlineImages}" Margin="0,0,16,0"/>
+                    <CheckBox Content="グレースケール" IsChecked="{Binding GrayscaleImages}" Margin="0,0,16,0"/>
+                    <CheckBox Content="ルビを残す" IsChecked="{Binding KeepRuby}" Margin="0,0,16,0"/>
+                    <CheckBox Content="テキスト校正" IsChecked="{Binding EnableProofreading}" Margin="0,0,6,0"
+                              ToolTip="narou.rb互換の校正ルールを適用します。ルールは proofreading.json で編集できます。"/>
+                    <Button Style="{StaticResource Ghost}" Content="ルール編集" Padding="8,3" FontSize="11" Margin="0,0,24,0"
+                            Command="{Binding OpenProofreadingRulesCommand}"
+                            ToolTip="校正ルールファイル (proofreading.json) をテキストエディタで開きます。"/>
+                    <TextBlock Text="分割(話/ファイル):" VerticalAlignment="Center" Foreground="{DynamicResource Muted}" Margin="0,0,4,0"/>
+                    <TextBox Style="{StaticResource Field}" Width="64" Text="{Binding EpisodesPerFile}" Margin="0,0,24,0"
+                             ToolTip="この話数ごとにEPUBを分割します（既定200）。"/>
+                    <TextBlock Text="間隔(ms):" VerticalAlignment="Center" Foreground="{DynamicResource Muted}" Margin="0,0,4,0"/>
+                    <TextBox Style="{StaticResource Field}" Width="64" Text="{Binding RequestDelayMs}"/>
+                </WrapPanel>
+
+                <Separator Margin="0,10" Background="{DynamicResource Border}"/>
+
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="保存先:" VerticalAlignment="Center"
+                               Foreground="{DynamicResource Muted}" Margin="0,0,8,0"/>
+                    <TextBlock Grid.Column="1" Text="{Binding OutputFolder}" VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis" ToolTip="{Binding OutputFolder}"/>
+                    <Button Grid.Column="2" Style="{StaticResource Ghost}" Content="フォルダ変更"
+                            Command="{Binding ChooseFolderCommand}" Margin="8,0,0,0"/>
+                    <StackPanel Grid.Column="3" Orientation="Horizontal" Margin="16,0,0,0">
+                        <Button Style="{StaticResource Ghost}" Content="🔄 更新チェック"
+                                Command="{Binding CheckAllCommand}"/>
+                        <Button Style="{StaticResource Accent}" Content="⬆ 更新をまとめて適用" Margin="8,0,0,0"
+                                Command="{Binding UpdateAllCommand}"/>
+                    </StackPanel>
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <!-- 進捗・ステータス -->
+        <Border DockPanel.Dock="Bottom" Style="{StaticResource Card}" Margin="0,12,0,0" Padding="14,10">
+            <StackPanel>
+                <ProgressBar Minimum="0" Maximum="100" Value="{Binding ProgressValue}"
+                             IsIndeterminate="{Binding ProgressIndeterminate}"/>
+                <TextBlock Text="{Binding StatusText}" TextWrapping="Wrap" Margin="0,8,0,0"
+                           Foreground="{DynamicResource Muted}"/>
+            </StackPanel>
+        </Border>
+
+        <!-- ライブラリ一覧 -->
+        <Border Style="{StaticResource Card}" Padding="6">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <!-- 並べ替えコントロール -->
+                <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="6,4,0,8">
+                    <TextBlock Text="並べ替え:" FontSize="11" Foreground="{DynamicResource Muted}"
+                               VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <RadioButton Style="{StaticResource SortRadio}" Content="変換日"
+                                 GroupName="LibSort" IsChecked="{Binding IsSortConverted}"/>
+                    <RadioButton Style="{StaticResource SortRadio}" Content="サイト更新日"
+                                 GroupName="LibSort" IsChecked="{Binding IsSortSiteUpdated}"/>
+                    <RadioButton Style="{StaticResource SortRadio}" Content="タイトル"
+                                 GroupName="LibSort" IsChecked="{Binding IsSortTitle}"/>
+                </StackPanel>
+
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="6">
+                    <ItemsControl ItemsSource="{Binding Items}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Background="{DynamicResource CardBg}"
+                                        BorderBrush="{DynamicResource Border}" BorderThickness="1"
+                                        CornerRadius="10" Margin="4" Padding="12">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <!-- 表紙サムネ -->
+                                        <Border Grid.Column="0" Width="60" Height="84" CornerRadius="4"
+                                                Background="{DynamicResource AppBg}" Margin="0,0,14,0">
+                                            <Grid>
+                                                <TextBlock Text="表紙" Foreground="{DynamicResource Muted}" FontSize="11"
+                                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                <Image Source="{Binding Thumbnail}" Stretch="UniformToFill"/>
+                                            </Grid>
+                                        </Border>
+
+                                        <!-- 情報 -->
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                            <!-- タイトル行 -->
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="{Binding Title}" FontSize="15" FontWeight="SemiBold"
+                                                           TextTrimming="CharacterEllipsis" VerticalAlignment="Center" MaxWidth="380"/>
+                                                <Border Visibility="{Binding CompletedVisibility}" Background="#16A34A"
+                                                        CornerRadius="4" Padding="6,1" Margin="8,0,0,0" VerticalAlignment="Center">
+                                                    <TextBlock Text="完結" Foreground="White" FontSize="11" FontWeight="SemiBold"/>
+                                                </Border>
+                                                <Button Style="{StaticResource Chip}" Content="📋" Padding="5,2" FontSize="12"
+                                                        Margin="6,0,0,0" VerticalAlignment="Center"
+                                                        ToolTip="タイトルをクリップボードにコピー"
+                                                        Command="{Binding DataContext.CopyTitleCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                        CommandParameter="{Binding}"/>
+                                            </StackPanel>
+
+                                            <!-- サイト・著者・話数 -->
+                                            <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
+                                                <Border Background="{DynamicResource AccentBg}" CornerRadius="4" Padding="6,1" Margin="0,0,8,0">
+                                                    <TextBlock Text="{Binding SiteLabel}" FontSize="11" Foreground="{DynamicResource AccentBrush}"/>
+                                                </Border>
+                                                <TextBlock Text="{Binding Author}" Foreground="{DynamicResource Muted}" VerticalAlignment="Center"/>
+                                                <TextBlock Text="  ·  " Foreground="{DynamicResource Muted}" VerticalAlignment="Center"/>
+                                                <TextBlock Text="{Binding EpisodesText}" Foreground="{DynamicResource Muted}" VerticalAlignment="Center"/>
+                                                <TextBlock Text="  ·  " Foreground="{DynamicResource Muted}" VerticalAlignment="Center"/>
+                                                <TextBlock Text="{Binding PartsText}" Foreground="{DynamicResource Muted}" VerticalAlignment="Center"/>
+                                            </StackPanel>
+
+                                            <!-- URL リンク -->
+                                            <TextBlock Margin="0,3,0,0" FontSize="11">
+                                                <Hyperlink Command="{Binding DataContext.OpenUrlCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                           CommandParameter="{Binding}"
+                                                           Foreground="{DynamicResource AccentBrush}">
+                                                    <Run Text="{Binding Url, Mode=OneWay}"/>
+                                                </Hyperlink>
+                                            </TextBlock>
+
+                                            <!-- ステータスバッジ + 日付 -->
+                                            <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                                <Border CornerRadius="9" Padding="9,2" Background="{Binding StatusBrush}">
+                                                    <TextBlock Text="{Binding StatusText}" Foreground="White" FontSize="11" FontWeight="SemiBold"/>
+                                                </Border>
+                                                <TextBlock Text="{Binding SiteUpdatedText}" Foreground="{DynamicResource Muted}"
+                                                           FontSize="11" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                                                <TextBlock Text="{Binding LastCheckedText}" Foreground="{DynamicResource Muted}"
+                                                           FontSize="11" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                                                <TextBlock Text="{Binding LastUpdatedText}" Foreground="{DynamicResource Muted}"
+                                                           FontSize="11" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                                            </StackPanel>
+
+                                            <!-- 出力ファイル名 -->
+                                            <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                                <TextBlock Text="ファイル名:" Foreground="{DynamicResource Muted}" FontSize="11"
+                                                           VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                                <TextBox Style="{StaticResource Field}" Width="260" FontSize="12" Padding="6,3"
+                                                         Text="{Binding NameTemplateEdit, UpdateSourceTrigger=PropertyChanged}"
+                                                         ToolTip="プレースホルダ: {title} {author} {part}（分割通し番号）"/>
+                                                <Button Style="{StaticResource Chip}" Content="出力ファイル名変更" Margin="6,0,0,0"
+                                                        Command="{Binding DataContext.RenameCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                        CommandParameter="{Binding}"/>
+                                            </StackPanel>
+                                        </StackPanel>
+
+                                        <!-- 操作 -->
+                                        <WrapPanel Grid.Column="2" Width="270" VerticalAlignment="Center" HorizontalAlignment="Right">
+                                            <Button Style="{StaticResource Chip}" Content="確認" Margin="4"
+                                                    Command="{Binding DataContext.CheckItemCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                    CommandParameter="{Binding}"/>
+                                            <Button Style="{StaticResource Accent}" Content="更新" Margin="4" Padding="11,5" FontSize="12"
+                                                    Command="{Binding DataContext.UpdateItemCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                    CommandParameter="{Binding}"/>
+                                            <Button Style="{StaticResource Chip}" Content="表紙" Margin="4"
+                                                    Command="{Binding DataContext.ChangeCoverCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                    CommandParameter="{Binding}"/>
+                                            <Button Style="{StaticResource Chip}" Content="開く" Margin="4"
+                                                    Command="{Binding DataContext.OpenEpubCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                    CommandParameter="{Binding}"/>
+                                            <Button Style="{StaticResource Chip}" Content="📁" Margin="4"
+                                                    Command="{Binding DataContext.OpenFolderCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                    CommandParameter="{Binding}"/>
+                                            <Button Style="{StaticResource Danger}" Content="削除" Margin="4" Padding="9,5" FontSize="12"
+                                                    Command="{Binding DataContext.RemoveCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                    CommandParameter="{Binding}"/>
+                                        </WrapPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+
+                <!-- 空状態 -->
+                <TextBlock Grid.Row="1" Text="まだ作品がありません。上の入力欄にURLを貼り付けて「ライブラリに追加」してください。"
+                           Foreground="{DynamicResource Muted}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                           Visibility="{Binding Items.Count, Converter={x:Static local:CountToVisibility.Instance}}"/>
+            </Grid>
+        </Border>
+    </DockPanel>
+</Window>
