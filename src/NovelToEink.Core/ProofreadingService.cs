@@ -71,6 +71,7 @@ public sealed class ProofreadingService
 
     /// <summary>
     /// ルールファイルを読み込む。ファイルが無い場合は narou.rb 互換デフォルトを保存して返す。
+    /// 新しいデフォルトルールが既存ファイルに未登録の場合は末尾に追記して保存する。
     /// </summary>
     public static ProofreadingService Load(string? path = null)
     {
@@ -81,7 +82,20 @@ public sealed class ProofreadingService
             {
                 var rules = JsonSerializer.Deserialize<List<ProofreadingRule>>(
                     File.ReadAllText(path), ReadOpts);
-                if (rules != null) return new ProofreadingService(rules);
+                if (rules != null)
+                {
+                    var updated = false;
+                    foreach (var def in DefaultRules)
+                    {
+                        if (!rules.Any(r => r.Name == def.Name))
+                        {
+                            rules.Add(def);
+                            updated = true;
+                        }
+                    }
+                    if (updated) SaveRules(rules, path);
+                    return new ProofreadingService(rules);
+                }
             }
             catch { }
         }
@@ -100,6 +114,13 @@ public sealed class ProofreadingService
         }
         catch { }
     }
+
+    /// <summary>有効な text_replace ルールを (From, To) リストで返す（PatchVertical 用）。</summary>
+    public IReadOnlyList<(string From, string To)> GetEnabledTextReplacements()
+        => _rules
+            .Where(r => r.Enabled && r.Type == "text_replace" && r.From != null && r.To != null)
+            .Select(r => (r.From!, r.To!))
+            .ToList();
 
     /// <summary>エピソード本文 XHTML に校正ルールを適用して返す。</summary>
     public string Apply(string bodyHtml)
@@ -231,6 +252,15 @@ public sealed class ProofreadingService
             Type = "text_replace",
             From = "？。",
             To = "？",
+        },
+        new()
+        {
+            Name = "波ダッシュ統一",
+            Description = "「～」(U+FF5E 全角チルダ) を「〜」(U+301C 波ダッシュ) に統一する。縦書きで U+FF5E が正しく回転しないリーダー対策。",
+            Enabled = true,
+            Type = "text_replace",
+            From = "～",
+            To = "〜",
         },
         new()
         {

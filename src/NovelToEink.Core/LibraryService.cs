@@ -225,10 +225,12 @@ public sealed class LibraryService
     }
 
     /// <summary>
-    /// ライブラリ内の全EPUBを縦書き・目次全角スペース修正でパッチする（再ダウンロードなし）。
+    /// ライブラリ内の全EPUBを縦書き・目次全角スペース修正・テキスト置換でパッチする（再ダウンロードなし）。
+    /// proofreading.json の有効な text_replace ルールを本文 XHTML にも適用する。
     /// </summary>
     public void PatchAllVertical(IProgress<string>? progress = null)
     {
+        var textReplacements = ProofreadingService.Load().GetEnabledTextReplacements();
         foreach (var entry in Entries)
         {
             foreach (var path in entry.EpubParts.Where(File.Exists))
@@ -237,7 +239,7 @@ public sealed class LibraryService
                 try
                 {
                     entry.Options.WritingMode = WritingMode.Vertical;
-                    EpubBuilder.PatchVertical(path, entry.Options);
+                    EpubBuilder.PatchVertical(path, entry.Options, textReplacements);
                 }
                 catch (Exception ex)
                 {

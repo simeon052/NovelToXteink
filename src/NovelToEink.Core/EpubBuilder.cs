@@ -210,6 +210,24 @@ public static partial class EpubBuilder
         return XhtmlDocument(ep.Ref.Title, body.ToString(), "style.css");
     }
 
+    /// <summary>HTML のテキストノード部分（タグ外）にのみ変換関数を適用する。</summary>
+    private static string ApplyToTextNodes(string html, Func<string, string> transform)
+    {
+        var sb = new StringBuilder(html.Length);
+        var i = 0;
+        while (i < html.Length)
+        {
+            var tagStart = html.IndexOf('<', i);
+            if (tagStart < 0) { sb.Append(transform(html[i..])); break; }
+            if (tagStart > i) sb.Append(transform(html[i..tagStart]));
+            var tagEnd = html.IndexOf('>', tagStart);
+            if (tagEnd < 0) { sb.Append(html[tagStart..]); break; }
+            sb.Append(html[tagStart..(tagEnd + 1)]);
+            i = tagEnd + 1;
+        }
+        return sb.ToString();
+    }
+
     /// <summary>本文中の絶対URL img を、収録済みのローカル画像へ書き換える。未収録は除去。</summary>
     private static string RewriteImages(string html, Dictionary<string, string> urlToFile)
     {
@@ -379,10 +397,11 @@ public static partial class EpubBuilder
     }
 
     /// <summary>
-    /// 既存EPUBを縦書き設定・目次全角スペース修正でインプレースパッチする。
-    /// 再ダウンロード不要。style.css / content.opf / nav.xhtml のみ差し替え。
+    /// 既存EPUBを縦書き設定・目次全角スペース修正・テキスト置換でインプレースパッチする。
+    /// 再ダウンロード不要。style.css / content.opf / nav.xhtml と本文 XHTML を差し替え。
     /// </summary>
-    public static void PatchVertical(string epubPath, EpubOptions opt)
+    public static void PatchVertical(string epubPath, EpubOptions opt,
+        IReadOnlyList<(string From, string To)>? textReplacements = null)
     {
         var tmp = epubPath + ".tmp";
         try
@@ -417,6 +436,14 @@ public static partial class EpubBuilder
                     else if (name == "OEBPS/nav.xhtml")
                     {
                         patched = Encoding.UTF8.GetString(bytes).Replace("　", " ");
+                    }
+                    else if (name.StartsWith("OEBPS/text/") && name.EndsWith(".xhtml")
+                             && textReplacements is { Count: > 0 })
+                    {
+                        var xhtml = Encoding.UTF8.GetString(bytes);
+                        foreach (var (from, to) in textReplacements)
+                            xhtml = ApplyToTextNodes(xhtml, s => s.Replace(from, to, StringComparison.Ordinal));
+                        patched = xhtml;
                     }
 
                     if (patched != null)
