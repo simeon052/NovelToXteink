@@ -1,3 +1,5 @@
+using NovelToEink.Xtc;
+
 namespace NovelToEink.Core;
 
 /// <summary>本文の組み方向。</summary>
@@ -47,6 +49,18 @@ public sealed class EpubOptions
 
     /// <summary>テキスト校正を有効にする（%AppData%\NovelToEink\proofreading.json のルールを適用）。</summary>
     public bool EnableProofreading { get; set; } = true;
+    /// <summary>
+    /// XTCファイルを同時に生成するか
+    /// </summary>
+    public bool GenerateXtc { get; set; } = false;
+
+    /// <summary>
+    /// XTC変換用のフォントファイル（空文字列の場合は自動選択）
+    /// </summary>
+    public string XtcFontFile { get; set; } = "";
+
+    /// <summary>XTC の出力対象端末。解像度はここで決まる（X3: 528x792 / X4 Pro: 480x800）。</summary>
+    public XteinkDevice XtcDevice { get; set; } = XteinkDevice.X4Pro;
 }
 
 /// <summary>ダウンロード時の挙動。</summary>

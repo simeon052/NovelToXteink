@@ -1,4 +1,5 @@
 using System.Text.Json;
+using NovelToEink.Xtc;
 using System.Text.Json.Serialization;
 
 namespace NovelToEink.Core;
@@ -123,6 +124,22 @@ public sealed class AppSettings
     public int EpisodesPerFile { get; set; } = 200;
     public bool IsDarkMode { get; set; } = false;
 
+    // XTC 出力
+    /// <summary>EPUB 生成後に XTC も作るか。</summary>
+    public bool GenerateXtc { get; set; } = false;
+
+    /// <summary>XTC の出力対象端末（X3: 528x792 / X4 Pro: 480x800）。</summary>
+    public XteinkDevice XtcDevice { get; set; } = XteinkDevice.X4Pro;
+
+    /// <summary>XTC 描画に使うフォントファイル。空なら自動選択。</summary>
+    public string XtcFontFile { get; set; } = "";
+
+    /// <summary>
+    /// 表紙を自動で決めて追加処理を止めないか。
+    /// true なら公式表紙（無ければ文字生成表紙）を暫定で入れ、候補は裏で集める。
+    /// </summary>
+    public bool AutoCover { get; set; } = true;
+
     private static readonly JsonSerializerOptions JsonOpts = new() { WriteIndented = true };
 
     private static string SettingsPath => Path.Combine(
@@ -158,5 +175,8 @@ public sealed class AppSettings
         KeepRuby = KeepRuby,
         EpisodesPerFile = EpisodesPerFile,
         EnableProofreading = EnableProofreading,
+        GenerateXtc = GenerateXtc,
+        XtcDevice = XtcDevice,
+        XtcFontFile = XtcFontFile,
     };
 }

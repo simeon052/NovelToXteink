@@ -11,3 +11,9 @@ obj/
 ## OS
 Thumbs.db
 .DS_Store
+
+## 書籍データ・変換成果物（サイズが大きいためリポジトリには入れない）
+*.epub
+*.xtc
+sample/
+Epub/

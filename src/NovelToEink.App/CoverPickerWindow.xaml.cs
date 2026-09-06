@@ -19,7 +19,12 @@ public partial class CoverPickerWindow : Window
     private readonly NovelMetadata _metadata;
     private readonly CancellationTokenSource _searchCts = new();
 
-    public CoverPickerWindow(NovelDownload novel, EpubOptions options)
+    /// <param name="novel">対象作品のダウンロード結果。</param>
+    /// <param name="options">EPUBオプション（プレビューの見た目に使う）。</param>
+    /// <param name="prefetched">
+    /// 追加時に裏で集めておいた表紙候補。渡すと即座に一覧へ並び、画像検索をやり直さない。
+    /// </param>
+    public CoverPickerWindow(NovelDownload novel, EpubOptions options, IReadOnlyList<ScrapedImage>? prefetched = null)
     {
         _options = options;
         _metadata = novel.Metadata;
@@ -27,14 +32,36 @@ public partial class CoverPickerWindow : Window
         InitializeComponent();
         TitleText.Text = novel.Metadata.Title;
         SubText.Text = $"{novel.Episodes.Count} 話 ／ 画像 {novel.Images.Count} 枚 — 表紙を選んでください";
-        SearchStatus.Text = "画像を検索中…";
 
         BuildCandidates(novel, options);
+
+        if (prefetched is { Count: > 0 })
+        {
+            InsertSearchResults(prefetched);
+            SearchStatus.Text = $"取得済みの候補 {prefetched.Count} 件";
+        }
+        else
+        {
+            SearchStatus.Text = "画像を検索中…";
+            Loaded += async (_, _) => await SearchAndAddAsync();
+        }
+
         CoverList.ItemsSource = Covers;
         CoverList.SelectedItem = Covers.FirstOrDefault();
 
-        Loaded += async (_, _) => await SearchAndAddAsync();
         Closed += (_, _) => _searchCts.Cancel();
+    }
+
+    /// <summary>検索結果を「表紙なし」の直前へ差し込む。</summary>
+    private void InsertSearchResults(IReadOnlyList<ScrapedImage> images)
+    {
+        var insertAt = Math.Max(0, Covers.Count - 1);
+        for (var i = 0; i < images.Count; i++)
+        {
+            var img = images[i];
+            Covers.Insert(insertAt + i,
+                CoverCandidate.FromImage(img, $"検索{i + 1}（{img.Width}×{img.Height}）", _options));
+        }
     }
 
     private void BuildCandidates(NovelDownload novel, EpubOptions options)
@@ -74,14 +101,7 @@ public partial class CoverPickerWindow : Window
             var images = await ImageSearchService.SearchAsync(
                 _metadata.Title, _metadata.Author, 5, _searchCts.Token);
 
-            // "なし" の直前に挿入
-            var insertAt = Math.Max(0, Covers.Count - 1);
-            for (var i = 0; i < images.Count; i++)
-            {
-                var img = images[i];
-                Covers.Insert(insertAt + i,
-                    CoverCandidate.FromImage(img, $"検索{i + 1}（{img.Width}×{img.Height}）", _options));
-            }
+            InsertSearchResults(images);
 
             SearchStatus.Text = images.Count > 0
                 ? $"画像検索 {images.Count} 件追加"
