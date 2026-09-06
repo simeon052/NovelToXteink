@@ -755,6 +755,8 @@ public sealed class MainViewModel : ViewModelBase
             res["AccentBrush"]= new SolidColorBrush(Color.FromRgb(0x81, 0x8C, 0xF8));
             res["AccentBg"]   = new SolidColorBrush(Color.FromRgb(0x31, 0x2E, 0x81));
             res["Subtle"]     = new SolidColorBrush(Color.FromRgb(0x36, 0x39, 0x40));
+            res["DangerBg"]   = new SolidColorBrush(Color.FromRgb(0x4A, 0x22, 0x26));
+            res["DangerText"] = new SolidColorBrush(Color.FromRgb(0xFC, 0xA5, 0xA5));
         }
         else
         {
@@ -766,6 +768,8 @@ public sealed class MainViewModel : ViewModelBase
             res["AccentBrush"]= new SolidColorBrush(Color.FromRgb(0x4F, 0x46, 0xE5));
             res["AccentBg"]   = new SolidColorBrush(Color.FromRgb(0xEE, 0xF0, 0xFF));
             res["Subtle"]     = new SolidColorBrush(Color.FromRgb(0xEE, 0xF0, 0xF3));
+            res["DangerBg"]   = new SolidColorBrush(Color.FromRgb(0xFE, 0xE2, 0xE2));
+            res["DangerText"] = new SolidColorBrush(Color.FromRgb(0xB9, 0x1C, 0x1C));
         }
     }
 
