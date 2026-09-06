@@ -35,7 +35,7 @@
 
                 <!-- 左: URL入力 -->
                 <StackPanel Grid.Column="0" Margin="0,0,14,0">
-                    <TextBlock Style="{StaticResource SectionTitle}" Text="作品URL（複数可・改行/スペース区切り）"/>
+                    <TextBlock Style="{StaticResource SectionTitle}" Text="作品URL または タイトル（1行に1件）"/>
                     <TextBox Style="{StaticResource Field}" Height="74" AcceptsReturn="True"
                              TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"
                              VerticalContentAlignment="Top"
@@ -61,6 +61,8 @@
                     <CheckBox Content="挿絵を含める" IsChecked="{Binding IncludeInlineImages}" Margin="0,0,16,0"/>
                     <CheckBox Content="グレースケール" IsChecked="{Binding GrayscaleImages}" Margin="0,0,16,0"/>
                     <CheckBox Content="ルビを残す" IsChecked="{Binding KeepRuby}" Margin="0,0,16,0"/>
+                    <CheckBox Content="表紙を自動選択" IsChecked="{Binding AutoCover}" Margin="0,0,16,0"
+                              ToolTip="追加時に表紙選択で止まらず、公式表紙（無ければ文字生成表紙）を暫定で使います。候補は裏で集め、あとから「表紙」ボタンで差し替えられます。"/>
                     <CheckBox Content="テキスト校正" IsChecked="{Binding EnableProofreading}" Margin="0,0,6,0"
                               ToolTip="narou.rb互換の校正ルールを適用します。ルールは proofreading.json で編集できます。"/>
                     <Button Style="{StaticResource Ghost}" Content="ルール編集" Padding="8,3" FontSize="11" Margin="0,0,24,0"
@@ -263,7 +265,8 @@
                                             <Button Style="{StaticResource Accent}" Content="更新" Margin="4" Padding="11,5" FontSize="12"
                                                     Command="{Binding DataContext.UpdateItemCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                                     CommandParameter="{Binding}"/>
-                                            <Button Style="{StaticResource Chip}" Content="表紙" Margin="4"
+                                            <Button Style="{StaticResource Chip}" Content="{Binding CoverButtonLabel}" Margin="4"
+                                                    ToolTip="表紙を選び直します。● は取得済みの候補件数です。"
                                                     Command="{Binding DataContext.ChangeCoverCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                                     CommandParameter="{Binding}"/>
                                             <Button Style="{StaticResource Chip}" Content="XTC" Margin="4"
@@ -288,7 +291,7 @@
                 </ScrollViewer>
 
                 <!-- 空状態 -->
-                <TextBlock Grid.Row="1" Text="まだ作品がありません。上の入力欄にURLを貼り付けて「ライブラリに追加」してください。"
+                <TextBlock Grid.Row="1" Text="まだ作品がありません。上の入力欄にURL、または作品タイトルを入力して「ライブラリに追加」してください。"
                            Foreground="{DynamicResource Muted}" HorizontalAlignment="Center" VerticalAlignment="Center"
                            Visibility="{Binding Items.Count, Converter={x:Static local:CountToVisibility.Instance}}"/>
             </Grid>

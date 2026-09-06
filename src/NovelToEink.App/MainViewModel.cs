@@ -27,7 +27,7 @@ public sealed class MainViewModel : ViewModelBase
         ApplyTheme(_settings.IsDarkMode);
         ReloadItems();
 
-        AddCommand = new AsyncRelayCommand(AddAsync, () => !IsBusy && HasUrls);
+        AddCommand = new AsyncRelayCommand(AddAsync, () => !IsBusy && HasInputs);
         CheckAllCommand = new AsyncRelayCommand(CheckAllAsync, () => !IsBusy && Items.Count > 0);
         UpdateAllCommand = new AsyncRelayCommand(UpdateAllAsync, () => !IsBusy && Items.Any(i => i.HasUpdate));
         ChooseFolderCommand = new RelayCommand(ChooseFolder, () => !IsBusy);
@@ -54,9 +54,11 @@ public sealed class MainViewModel : ViewModelBase
     public string UrlsText
     {
         get => _urlsText;
-        set { if (Set(ref _urlsText, value)) OnChanged(nameof(HasUrls)); }
+        set { if (Set(ref _urlsText, value)) OnChanged(nameof(HasInputs)); }
     }
-    public bool HasUrls => ParseUrls(_urlsText).Count > 0;
+
+    /// <summary>URLまたはタイトルが1件以上入力されているか。</summary>
+    public bool HasInputs => ParseInputs(_urlsText).Count > 0;
 
     public string OutputFolder => _settings.OutputFolder;
 
@@ -94,6 +96,13 @@ public sealed class MainViewModel : ViewModelBase
     {
         get => _settings.EnableProofreading;
         set { if (_settings.EnableProofreading != value) { _settings.EnableProofreading = value; _settings.Save(); OnChanged(); } }
+    }
+
+    /// <summary>追加時に表紙選択で止まらず、暫定表紙で先へ進むか。</summary>
+    public bool AutoCover
+    {
+        get => _settings.AutoCover;
+        set { if (_settings.AutoCover != value) { _settings.AutoCover = value; _settings.Save(); OnChanged(); } }
     }
 
     // ---- XTC 出力 ----
@@ -199,7 +208,7 @@ public sealed class MainViewModel : ViewModelBase
     private bool _progressIndeterminate;
     public bool ProgressIndeterminate { get => _progressIndeterminate; set => Set(ref _progressIndeterminate, value); }
 
-    private string _statusText = "URLを貼り付けて「ライブラリに追加」。複数URLは改行/スペース区切りでまとめて追加できます。";
+    private string _statusText = "URL、または作品タイトルを入力して「ライブラリに追加」。1行に1件で、まとめて追加できます。";
     public string StatusText { get => _statusText; set => Set(ref _statusText, value); }
 
     // ---- コマンド ----
@@ -234,9 +243,8 @@ public sealed class MainViewModel : ViewModelBase
 
     private async Task AddAsync()
     {
-        var urls = ParseUrls(_urlsText);
-        var supported = urls.Where(_service.IsSupported).ToList();
-        if (supported.Count == 0) { StatusText = "対応URLが見つかりません（なろう / カクヨムのみ）。"; return; }
+        var inputs = ParseInputs(_urlsText);
+        if (inputs.Count == 0) { StatusText = "URLまたは作品タイトルを入力してください。"; return; }
 
         IsBusy = true;
         _cts = new CancellationTokenSource();
@@ -247,22 +255,27 @@ public sealed class MainViewModel : ViewModelBase
 
         try
         {
-            foreach (var url in supported)
+            foreach (var input in inputs)
             {
                 _cts.Token.ThrowIfCancellationRequested();
                 try
                 {
+                    var url = await ResolveInputAsync(input, _cts.Token);
+                    if (url == null) { skipped++; continue; }
+
                     StatusText = $"ダウンロード中: {url}";
                     var novel = await _service.DownloadAsync(url, Options, dlProgress, _cts.Token);
 
-                    var dlg = new CoverPickerWindow(novel, Options) { Owner = Application.Current.MainWindow };
-                    if (dlg.ShowDialog() != true) { skipped++; continue; }
-                    var cover = dlg.Result?.Image;
+                    var cover = await PickCoverAsync(novel);
+                    if (cover.Cancelled) { skipped++; continue; }
 
                     StatusText = "EPUBを生成中…";
-                    var entry = await Task.Run(() => _service.BuildAndRegister(novel, cover, Options, buildProgress));
+                    var entry = await Task.Run(() => _service.BuildAndRegister(novel, cover.Image, Options, buildProgress));
                     UpsertItem(entry);
                     added++;
+
+                    // 暫定表紙で進めた場合は、差し替え候補を裏で集めておく。
+                    if (cover.IsProvisional) PrefetchCoverCandidates(entry);
                 }
                 catch (OperationCanceledException) { throw; }
                 catch (Exception ex) { failed++; lastError = ex.Message; }
@@ -274,6 +287,73 @@ public sealed class MainViewModel : ViewModelBase
         }
         catch (OperationCanceledException) { StatusText = $"中断しました（追加 {added} 件）。"; }
         finally { EndBusy(); }
+    }
+
+    /// <summary>入力がURLならそのまま、タイトルなら検索して目次URLに解決する。</summary>
+    private async Task<string?> ResolveInputAsync(string input, CancellationToken token)
+    {
+        if (NovelSearchService.LooksLikeUrl(input))
+        {
+            var url = input.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? input : "https://" + input;
+            if (_service.IsSupported(url)) return url;
+            StatusText = $"対応していないURLです（なろう / カクヨムのみ）: {input}";
+            return null;
+        }
+
+        StatusText = $"タイトルを検索中: {input}";
+        var hits = await NovelSearchService.SearchAsync(input, 5, token);
+        if (hits.Count == 0)
+        {
+            StatusText = $"「{input}」に一致する作品が見つかりませんでした。";
+            return null;
+        }
+
+        var best = hits[0];
+        var others = hits.Count > 1 ? $"（他 {hits.Count - 1} 件の候補あり）" : "";
+        StatusText = $"「{input}」→ {best.Label} {others}";
+        return best.Url;
+    }
+
+    /// <summary>暫定表紙で先へ進むか、ダイアログで選ばせるか。</summary>
+    private async Task<(ScrapedImage? Image, bool IsProvisional, bool Cancelled)> PickCoverAsync(NovelDownload novel)
+    {
+        if (_settings.AutoCover)
+            return (await Task.Run(() => CoverSelection.PickProvisional(novel, Options)), true, false);
+
+        var dlg = new CoverPickerWindow(novel, Options) { Owner = Application.Current.MainWindow };
+        if (dlg.ShowDialog() != true) return (null, false, true);
+        return (dlg.Result?.Image, false, false);
+    }
+
+    /// <summary>
+    /// 表紙候補を裏で集めてキャッシュしておく。追加処理は待たせない。
+    /// 集め終わったら該当カードの「表紙」ボタンに印を付ける。
+    /// </summary>
+    private void PrefetchCoverCandidates(LibraryEntry entry)
+    {
+        var outputFolder = _settings.OutputFolder;
+        var title = entry.Title;
+        var author = entry.Author;
+        var site = entry.Site;
+        var workId = entry.WorkId;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(2));
+                var images = await ImageSearchService.SearchAsync(title, author, 5, cts.Token);
+                if (images.Count == 0) return;
+
+                CoverCandidateCache.Save(outputFolder, site, workId, images);
+                await Application.Current.Dispatcher.InvokeAsync(() =>
+                {
+                    var item = Items.FirstOrDefault(i => i.Entry.Site == site && i.Entry.WorkId == workId);
+                    item?.SetCoverCandidateCount(images.Count);
+                });
+            }
+            catch { /* 候補が集まらなくても本処理には影響しない */ }
+        });
     }
 
     private async Task CheckAllAsync()
@@ -376,12 +456,21 @@ public sealed class MainViewModel : ViewModelBase
             StatusText = "表紙変更のため再取得中…";
             var novel = await _service.DownloadAsync(item.Entry.Url, item.Entry.Options, dlProgress, _cts.Token);
             item.IsBusy = false;
-            var dlg = new CoverPickerWindow(novel, item.Entry.Options) { Owner = Application.Current.MainWindow };
+
+            // 追加時に裏で集めた候補があれば、検索を待たずにそのまま見せる。
+            var prefetched = await Task.Run(() =>
+                CoverCandidateCache.Load(_settings.OutputFolder, item.Entry.Site, item.Entry.WorkId));
+
+            var dlg = new CoverPickerWindow(novel, item.Entry.Options, prefetched)
+            {
+                Owner = Application.Current.MainWindow,
+            };
             if (dlg.ShowDialog() != true) { StatusText = "表紙変更をキャンセルしました。"; return; }
             var cover = dlg.Result?.Image;
             StatusText = "EPUBを再生成中…";
             var entry = await Task.Run(() => _service.BuildAndRegister(novel, cover, item.Entry.Options, buildProgress));
             item.Refresh();
+            item.SetCoverCandidateCount(0);
             StatusText = $"「{entry.Title}」の表紙を変更しました。";
         }
         catch (OperationCanceledException) { StatusText = "中断しました。"; }
@@ -627,7 +716,12 @@ public sealed class MainViewModel : ViewModelBase
 
         Items.Clear();
         foreach (var e in sorted)
-            Items.Add(new LibraryItemVm(e));
+        {
+            var vm = new LibraryItemVm(e);
+            // 前回の起動で集めた表紙候補が残っていれば、印を復元する。
+            vm.SetCoverCandidateCount(CoverCandidateCache.CountCandidates(_settings.OutputFolder, e.Site, e.WorkId));
+            Items.Add(vm);
+        }
 
         OnChanged(nameof(IsSortConverted));
         OnChanged(nameof(IsSortSiteUpdated));
@@ -675,12 +769,29 @@ public sealed class MainViewModel : ViewModelBase
         }
     }
 
-    private static List<string> ParseUrls(string text)
+    /// <summary>
+    /// 入力欄をURL／タイトルの一覧に分解する。
+    /// 行を単位にし、URLを含む行だけ空白で分割する（タイトルは空白を含みうるため）。
+    /// </summary>
+    private static List<string> ParseInputs(string text)
     {
         if (string.IsNullOrWhiteSpace(text)) return [];
-        return text.Split([' ', '\t', '\r', '\n', ','], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Where(s => s.StartsWith("http", StringComparison.OrdinalIgnoreCase))
-            .Distinct()
-            .ToList();
+
+        var results = new List<string>();
+        foreach (var line in text.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            if (NovelSearchService.LooksLikeUrl(line))
+            {
+                results.AddRange(line
+                    .Split([' ', '\t', ','], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    .Where(NovelSearchService.LooksLikeUrl));
+            }
+            else
+            {
+                results.Add(line);
+            }
+        }
+
+        return results.Distinct().ToList();
     }
 }
