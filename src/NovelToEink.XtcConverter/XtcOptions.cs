@@ -1,8 +1,4 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using NovelToEink.Xtc;
 
 namespace NovelToEink.XtcConverter
 {
@@ -12,14 +8,19 @@ namespace NovelToEink.XtcConverter
     public class XtcOptions
     {
         /// <summary>
-        /// Target display resolution (default 480x800 for X4 Pro)
+        /// Target device. The output resolution follows from this (X3: 528x792, X4 Pro: 480x800).
         /// </summary>
-        public (int Width, int Height) Resolution { get; set; } = (480, 800);
+        public XteinkDevice Device { get; set; } = XteinkDevice.X4Pro;
+
+        /// <summary>
+        /// Target display resolution, derived from <see cref="Device"/>.
+        /// </summary>
+        public (int Width, int Height) Resolution => Device.GetResolution();
 
         /// <summary>
         /// Font file to use for rendering
         /// </summary>
-        public string FontFile { get; set; } = "";
+        public string? FontFile { get; set; } = "";
 
         /// <summary>
         /// Font size to use
@@ -52,13 +53,52 @@ namespace NovelToEink.XtcConverter
         public int MarginRight { get; set; } = 12;
 
         /// <summary>
+        /// Left margin
+        /// </summary>
+        public int MarginLeft { get; set; } = 12;
+
+        /// <summary>
         /// Whether to enable vertical writing mode
         /// </summary>
         public bool EnableVerticalWriting { get; set; } = true;
 
         /// <summary>
-        /// Whether to enable text wrapping
+        /// Whether to render ruby annotations
         /// </summary>
-        public bool EnableTextWrapping { get; set; } = true;
+        public bool RenderRuby { get; set; } = true;
+
+        /// <summary>
+        /// Whether to include illustrations from the EPUB
+        /// </summary>
+        public bool IncludeImages { get; set; } = true;
+
+        /// <summary>
+        /// Apply Floyd-Steinberg dithering to illustrations
+        /// </summary>
+        public bool DitherImages { get; set; } = true;
+
+        /// <summary>
+        /// Binarization threshold for text pages
+        /// </summary>
+        public int TextThreshold { get; set; } = 200;
+
+        /// <summary>Maps these options onto the renderer settings of the XTC library.</summary>
+        public XtcRenderOptions ToRenderOptions() => new()
+        {
+            Device = Device,
+            FontFile = FontFile,
+            FontSize = FontSize,
+            RubyFontSize = RubyFontSize,
+            LineSpacing = LineSpacing,
+            MarginTop = MarginTop,
+            MarginBottom = MarginBottom,
+            MarginRight = MarginRight,
+            MarginLeft = MarginLeft,
+            Vertical = EnableVerticalWriting,
+            RenderRuby = RenderRuby,
+            IncludeImages = IncludeImages,
+            DitherImages = DitherImages,
+            TextThreshold = TextThreshold,
+        };
     }
 }

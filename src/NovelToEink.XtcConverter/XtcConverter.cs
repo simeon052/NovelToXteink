@@ -20,7 +20,7 @@ namespace NovelToEink.XtcConverter
         /// <param name="epubPath">Path to the input EPUB file</param>
         /// <param name="outputPath">Path to save the output XTC file</param>
         /// <param name="options">Conversion options</param>
-        public virtual void ConvertEpubToXtc(string epubPath, string outputPath, XtcOptions options)
+        public virtual void ConvertEpubToXtc(string epubPath, string outputPath, XtcOptions? options)
         {
             // Implementation will be in derived classes
             throw new NotImplementedException();
@@ -32,7 +32,7 @@ namespace NovelToEink.XtcConverter
         /// <param name="epubPath">Path to the input EPUB file</param>
         /// <param name="outputPath">Path to save the output XTC file</param>
         /// <param name="options">Conversion options</param>
-        public virtual async Task ConvertAsync(string epubPath, string outputPath, XtcOptions options = null)
+        public virtual async Task ConvertAsync(string epubPath, string outputPath, XtcOptions? options = null)
         {
             // Default options if not provided
             options = options ?? new XtcOptions();

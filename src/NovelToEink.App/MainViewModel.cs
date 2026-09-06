@@ -5,6 +5,7 @@ using System.Windows;
 using System.Windows.Media;
 using Microsoft.Win32;
 using NovelToEink.Core;
+using NovelToEink.Xtc;
 
 namespace NovelToEink.App;
 
@@ -43,6 +44,9 @@ public sealed class MainViewModel : ViewModelBase
         CopyTitleCommand = new RelayCommand<LibraryItemVm>(CopyTitle);
         OpenUrlCommand = new RelayCommand<LibraryItemVm>(OpenUrl);
         ToggleDarkModeCommand = new RelayCommand(ToggleDarkMode);
+        ConvertXtcCommand = new AsyncRelayCommand<LibraryItemVm>(ConvertXtcAsync, _ => !IsBusy);
+        ConvertAllXtcCommand = new AsyncRelayCommand(ConvertAllXtcAsync, () => !IsBusy && Items.Count > 0);
+        ChooseXtcFontCommand = new RelayCommand(ChooseXtcFont, () => !IsBusy);
     }
 
     // ---- 入力・オプション ----
@@ -90,6 +94,65 @@ public sealed class MainViewModel : ViewModelBase
     {
         get => _settings.EnableProofreading;
         set { if (_settings.EnableProofreading != value) { _settings.EnableProofreading = value; _settings.Save(); OnChanged(); } }
+    }
+
+    // ---- XTC 出力 ----
+
+    /// <summary>EPUB 生成後に XTC も作るか。</summary>
+    public bool GenerateXtc
+    {
+        get => _settings.GenerateXtc;
+        set { if (_settings.GenerateXtc != value) { _settings.GenerateXtc = value; _settings.Save(); OnChanged(); } }
+    }
+
+    /// <summary>選択できる端末の一覧。</summary>
+    public IReadOnlyList<XteinkDevice> XtcDevices { get; } = [XteinkDevice.X3, XteinkDevice.X4Pro];
+
+    /// <summary>XTC の出力対象端末。</summary>
+    public XteinkDevice XtcDevice
+    {
+        get => _settings.XtcDevice;
+        set
+        {
+            if (_settings.XtcDevice == value) return;
+            _settings.XtcDevice = value;
+            _settings.Save();
+            OnChanged();
+            OnChanged(nameof(XtcResolutionText));
+        }
+    }
+
+    /// <summary>選択中の端末の解像度表示。</summary>
+    public string XtcResolutionText
+    {
+        get
+        {
+            var (w, h) = _settings.XtcDevice.GetResolution();
+            return $"{w} × {h} px";
+        }
+    }
+
+    // フォント探索はファイルシステムを走査するので一度だけ行う。
+    private readonly List<XtcFont> _fonts = [.. FontFinder.Enumerate()];
+
+    /// <summary>描画に使えるフォントの一覧（検出したもの + ユーザーが指定したもの）。</summary>
+    public IReadOnlyList<XtcFont> XtcFonts => _fonts;
+
+    /// <summary>XTC 描画に使うフォント。null なら自動選択。</summary>
+    public XtcFont? XtcFont
+    {
+        // 未設定のときは FontFinder が実際に選ぶフォントを見せる。
+        get => _fonts.FirstOrDefault(f =>
+                   string.Equals(f.FilePath, _settings.XtcFontFile, StringComparison.OrdinalIgnoreCase))
+               ?? _fonts.FirstOrDefault();
+        set
+        {
+            var path = value?.FilePath ?? "";
+            if (string.Equals(_settings.XtcFontFile, path, StringComparison.OrdinalIgnoreCase)) return;
+            _settings.XtcFontFile = path;
+            _settings.Save();
+            OnChanged();
+        }
     }
 
     // ---- ダークモード ----
@@ -156,6 +219,9 @@ public sealed class MainViewModel : ViewModelBase
     public RelayCommand<LibraryItemVm> CopyTitleCommand { get; }
     public RelayCommand<LibraryItemVm> OpenUrlCommand { get; }
     public RelayCommand ToggleDarkModeCommand { get; }
+    public AsyncRelayCommand<LibraryItemVm> ConvertXtcCommand { get; }
+    public AsyncRelayCommand ConvertAllXtcCommand { get; }
+    public RelayCommand ChooseXtcFontCommand { get; }
 
     private EpubOptions Options => _settings.ToEpubOptions();
 
@@ -321,6 +387,137 @@ public sealed class MainViewModel : ViewModelBase
         catch (OperationCanceledException) { StatusText = "中断しました。"; }
         catch (Exception ex) { StatusText = "表紙変更失敗：" + ex.Message; }
         finally { item.IsBusy = false; item.Refresh(); EndBusy(); }
+    }
+
+    /// <summary>一覧にないフォントファイルをダイアログで選ぶ。</summary>
+    private void ChooseXtcFont()
+    {
+        var dlg = new OpenFileDialog
+        {
+            Title = "XTC描画に使うフォントを選択",
+            Filter = "フォントファイル (*.ttf;*.ttc;*.otf;*.otc)|*.ttf;*.ttc;*.otf;*.otc|すべてのファイル (*.*)|*.*",
+            InitialDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "Fonts"),
+        };
+        if (dlg.ShowDialog() != true) return;
+
+        _settings.XtcFontFile = dlg.FileName;
+        _settings.Save();
+
+        // 一覧にない場合は選択肢として足しておく。
+        if (!_fonts.Any(f => string.Equals(f.FilePath, dlg.FileName, StringComparison.OrdinalIgnoreCase)))
+            _fonts.Add(new XtcFont(Path.GetFileNameWithoutExtension(dlg.FileName), dlg.FileName, "指定"));
+
+        OnChanged(nameof(XtcFonts));
+        OnChanged(nameof(XtcFont));
+        StatusText = $"XTCフォント: {Path.GetFileName(dlg.FileName)}";
+    }
+
+    // ---- XTC 変換 ----
+
+    private async Task ConvertXtcAsync(LibraryItemVm? item)
+    {
+        if (item == null) return;
+
+        var parts = GetEpubParts(item);
+        if (parts.Count == 0) { StatusText = "EPUBファイルが見つかりません。先に更新してください。"; return; }
+
+        IsBusy = true;
+        _cts = new CancellationTokenSource();
+        try
+        {
+            var pages = await ConvertPartsAsync(item, parts, _cts.Token);
+            StatusText = $"XTC変換完了: {item.Title}（{parts.Count} ファイル / 計 {pages} ページ）";
+        }
+        catch (OperationCanceledException) { StatusText = "XTC変換をキャンセルしました。"; }
+        catch (Exception ex) { StatusText = "XTC変換に失敗しました：" + ex.Message; }
+        finally
+        {
+            item.IsBusy = false;
+            IsBusy = false;
+            _cts?.Dispose();
+            _cts = null;
+            ProgressIndeterminate = false;
+            ProgressValue = 0;
+        }
+    }
+
+    private async Task ConvertAllXtcAsync()
+    {
+        var targets = Items.Where(i => GetEpubParts(i).Count > 0).ToList();
+        if (targets.Count == 0) { StatusText = "変換できるEPUBがありません。"; return; }
+
+        IsBusy = true;
+        _cts = new CancellationTokenSource();
+        int done = 0, failed = 0;
+        try
+        {
+            foreach (var item in targets)
+            {
+                _cts.Token.ThrowIfCancellationRequested();
+                try
+                {
+                    await ConvertPartsAsync(item, GetEpubParts(item), _cts.Token);
+                    done++;
+                }
+                catch (OperationCanceledException) { throw; }
+                catch (Exception ex)
+                {
+                    failed++;
+                    StatusText = $"{item.Title}: {ex.Message}";
+                }
+                finally { item.IsBusy = false; }
+            }
+            StatusText = $"XTC一括変換 完了: 成功 {done} / 失敗 {failed}";
+        }
+        catch (OperationCanceledException) { StatusText = $"XTC一括変換を中断しました（成功 {done}）。"; }
+        finally
+        {
+            foreach (var item in targets) item.IsBusy = false;
+            IsBusy = false;
+            _cts?.Dispose();
+            _cts = null;
+            ProgressIndeterminate = false;
+            ProgressValue = 0;
+        }
+    }
+
+    /// <summary>1作品ぶんのEPUB（分割ぶんを含む）をXTCへ変換し、総ページ数を返す。</summary>
+    private async Task<int> ConvertPartsAsync(LibraryItemVm item, IReadOnlyList<string> parts, CancellationToken token)
+    {
+        var options = XtcConversionUtility.BuildOptions(Options);
+        var totalPages = 0;
+
+        item.IsBusy = true;
+        for (var index = 0; index < parts.Count; index++)
+        {
+            token.ThrowIfCancellationRequested();
+
+            var epubPath = parts[index];
+            var xtcPath = Path.ChangeExtension(epubPath, ".xtc");
+            var label = parts.Count > 1 ? $"{item.Title} ({index + 1}/{parts.Count})" : item.Title;
+
+            var progress = new Progress<XtcProgress>(p =>
+            {
+                ProgressIndeterminate = p.ChapterCount == 0;
+                if (p.ChapterCount > 0) ProgressValue = 100.0 * p.ChapterIndex / p.ChapterCount;
+                item.BusyText = $"XTC変換中… {p.PagesEmitted} ページ";
+                StatusText = $"[XTC] {label}  {p.ChapterIndex}/{p.ChapterCount} 章  {p.PagesEmitted} ページ";
+            });
+
+            var result = await XtcConversionUtility.ConvertEpubToXtcAsync(epubPath, xtcPath, options, progress, token);
+            totalPages += result.PageCount;
+        }
+
+        return totalPages;
+    }
+
+    /// <summary>実在するEPUBファイルのパスを列挙する。</summary>
+    private static List<string> GetEpubParts(LibraryItemVm item)
+    {
+        var parts = item.Entry.EpubParts.Count > 0
+            ? item.Entry.EpubParts
+            : [item.Entry.EpubPath];
+        return parts.Where(p => !string.IsNullOrWhiteSpace(p) && File.Exists(p)).ToList();
     }
 
     private void OpenEpub(LibraryItemVm? item)

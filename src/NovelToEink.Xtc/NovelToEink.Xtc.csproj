@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>NovelToEink.Xtc</AssemblyName>
+    <RootNamespace>NovelToEink.Xtc</RootNamespace>
+    <IsPackable>true</IsPackable>
+    <PackageId>NovelToEink.Xtc</PackageId>
+    <Description>Xteink XTC/XTG (1bit monochrome) writer and vertical Japanese page renderer.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="HtmlAgilityPack" Version="1.12.4" />
+    <PackageReference Include="SkiaSharp" Version="3.119.0" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Win32" Version="3.119.0" />
+  </ItemGroup>
+
+</Project>

@@ -3,6 +3,7 @@
     <Project Path="src/NovelToEink.App/NovelToEink.App.csproj" />
     <Project Path="src/NovelToEink.Cli/NovelToEink.Cli.csproj" />
     <Project Path="src/NovelToEink.Core/NovelToEink.Core.csproj" />
+    <Project Path="src/NovelToEink.Xtc/NovelToEink.Xtc.csproj" />
     <Project Path="src/NovelToEink.XtcConverter/NovelToEink.XtcConverter.csproj" />
   </Folder>
 </Solution>

@@ -1,5 +1,7 @@
 using System;
 using System.IO;
+using System.Linq;
+using NovelToEink.Xtc;
 using NovelToEink.XtcConverter;
 
 namespace NovelToEink.Cli
@@ -21,14 +23,16 @@ namespace NovelToEink.Cli
                 case "help":
                     PrintHelp();
                     return 0;
-                default:
-                    break;
+                case "--list-fonts":
+                    PrintFonts();
+                    return 0;
             }
 
-            // Parse options
-            string inputPath = null;
-            string outputDirectory = null;
-            string fontFile = null;
+            string? inputPath = null;
+            string? outputDirectory = null;
+            string? fontFile = null;
+            var device = XteinkDevice.X4Pro;
+            var vertical = true;
 
             for (int i = 0; i < args.Length; i++)
             {
@@ -36,17 +40,35 @@ namespace NovelToEink.Cli
                 {
                     case "-o":
                     case "--output":
-                        if (i + 1 < args.Length) outputDirectory = args[++i];
-                        else { Console.WriteLine("Missing value for " + args[i]); return 1; }
+                        if (i + 1 >= args.Length) { Console.WriteLine("Missing value for " + args[i]); return 1; }
+                        outputDirectory = args[++i];
                         break;
+
                     case "-f":
                     case "--font":
-                        if (i + 1 < args.Length) fontFile = args[++i];
-                        else { Console.WriteLine("Missing value for " + args[i]); return 1; }
+                        if (i + 1 >= args.Length) { Console.WriteLine("Missing value for " + args[i]); return 1; }
+                        fontFile = args[++i];
                         break;
+
+                    case "-d":
+                    case "--device":
+                        if (i + 1 >= args.Length) { Console.WriteLine("Missing value for " + args[i]); return 1; }
+                        if (!XteinkDeviceInfo.TryParse(args[++i], out device))
+                        {
+                            Console.WriteLine($"Unknown device: {args[i]} (expected X3 or X4Pro)");
+                            return 1;
+                        }
+                        break;
+
+                    case "--horizontal":
+                        vertical = false;
+                        break;
+
                     default:
                         if (!args[i].StartsWith("-"))
+                        {
                             inputPath = args[i];
+                        }
                         else
                         {
                             Console.WriteLine($"Unknown option: {args[i]}");
@@ -64,7 +86,6 @@ namespace NovelToEink.Cli
                 return 1;
             }
 
-            // Validate inputs
             bool isDirectory = Directory.Exists(inputPath);
             bool isFile = File.Exists(inputPath);
             if (!isFile && !isDirectory)
@@ -73,31 +94,44 @@ namespace NovelToEink.Cli
                 return 1;
             }
 
-            // XTC conversion mode
+            var options = new XtcOptions
+            {
+                Device = device,
+                FontFile = fontFile,
+                EnableVerticalWriting = vertical,
+            };
+
             var inputDir = isDirectory ? inputPath : Path.GetDirectoryName(inputPath)!;
             var outDir = outputDirectory ?? Path.Combine(inputDir, "converted");
 
-            if (!File.Exists(inputPath))
+            if (isDirectory)
             {
-                var (s, f) = EpubToXtcConverter.ConvertDirectory(inputDir, outDir, fontFile);
+                var (s, f) = EpubToXtcConverter.ConvertDirectory(inputDir, outDir, options);
                 Console.WriteLine($"\nDone. Success={s} Failed={f}");
                 return f == 0 ? 0 : 1;
             }
-            else
+
+            var fileName = Path.GetFileNameWithoutExtension(inputPath);
+            var xtcFile = Path.Combine(outDir, fileName + ".xtc");
+            Console.WriteLine($"Converting: {inputPath}");
+            var ok = XtcConverterLibrary.ConvertEpubToXtc(inputPath, xtcFile, options);
+            if (ok) Console.WriteLine($"✓ XTC: {xtcFile}");
+            else Console.WriteLine("✗ Conversion failed");
+            return ok ? 0 : 1;
+        }
+
+        static void PrintFonts()
+        {
+            var fonts = FontFinder.Enumerate();
+            if (fonts.Count == 0)
             {
-                var fileName = Path.GetFileNameWithoutExtension(inputPath);
-                var xtcFile = Path.Combine(outDir, fileName + ".xtc");
-                Console.WriteLine($"Converting: {inputPath}");
-                var ok = XtcConverterLibrary.ConvertEpubToXtc(inputPath, xtcFile, new XtcOptions
-                {
-                    Resolution = (480, 800),
-                    FontFile = fontFile,
-                    EnableVerticalWriting = true
-                });
-                if (ok) Console.WriteLine($"✓ XTC: {xtcFile}");
-                else Console.WriteLine("✗ Conversion failed");
-                return ok ? 0 : 1;
+                Console.WriteLine("利用できるフォントが見つかりませんでした。");
+                return;
             }
+
+            Console.WriteLine("利用できるフォント:");
+            foreach (var font in fonts)
+                Console.WriteLine($"  [{font.Source}] {font.DisplayName}\n      {font.FilePath}");
         }
 
         static void PrintHelp()
@@ -106,19 +140,22 @@ namespace NovelToEink.Cli
             Console.WriteLine("---------------------------------");
             Console.WriteLine("");
             Console.WriteLine("Usage:");
-            Console.WriteLine("  NovelToEink.Cli <path> [-o <outputDir>] [-f <fontFile>]");
+            Console.WriteLine("  NovelToEink.Cli <path> [-o <outputDir>] [-d X3|X4Pro] [-f <fontFile>] [--horizontal]");
             Console.WriteLine("");
             Console.WriteLine("Arguments:");
             Console.WriteLine("  <path>      EPUB file or a directory containing EPUB files");
             Console.WriteLine("");
             Console.WriteLine("Options:");
             Console.WriteLine("  -o, --output <dir>  Output directory for generated XTC files");
-            Console.WriteLine("  -f, --font <file>   Font file to use for XTC conversion");
+            Console.WriteLine("  -d, --device <id>   Target device: X3 (528x792) or X4Pro (480x800, default)");
+            Console.WriteLine("  -f, --font <file>   Font file to use for rendering (default: auto-detected)");
+            Console.WriteLine("      --horizontal    Lay out horizontally instead of Japanese vertical writing");
+            Console.WriteLine("      --list-fonts    List the fonts available for rendering");
             Console.WriteLine("  -h, --help          Show this help");
             Console.WriteLine("");
             Console.WriteLine("Examples:");
-            Console.WriteLine("  NovelToEink.Cli book.epub -o out");
-            Console.WriteLine("  NovelToEink.Cli mybooks -o out");
+            Console.WriteLine("  NovelToEink.Cli book.epub -o out -d X3");
+            Console.WriteLine("  NovelToEink.Cli mybooks -o out -d X4Pro -f C:/Windows/Fonts/msmincho.ttc");
         }
     }
 }

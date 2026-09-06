@@ -18,9 +18,9 @@ namespace NovelToEink.Cli
         /// </summary>
         /// <param name="inputDirectory">Directory containing EPUB files</param>
         /// <param name="outputDirectory">Directory to save XTC files</param>
-        /// <param name="fontFile">Optional font file to use</param>
+        /// <param name="options">Conversion options (device, font, layout)</param>
         /// <returns>Conversion statistics</returns>
-        public static (int success, int failed) ConvertDirectory(string inputDirectory, string outputDirectory, string fontFile = null)
+        public static (int success, int failed) ConvertDirectory(string inputDirectory, string outputDirectory, XtcOptions? options = null)
         {
             if (!Directory.Exists(inputDirectory))
             {
@@ -46,13 +46,7 @@ namespace NovelToEink.Cli
                     
                     Console.WriteLine($"Converting: {fileName}");
                     
-                    var options = new XtcOptions
-                    {
-                        Resolution = (480, 800),
-                        FontFile = fontFile,
-                        EnableVerticalWriting = true
-                    };
-                    if (XtcConverterLibrary.ConvertEpubToXtc(epubFile, xtcFile, options))
+                    if (XtcConverterLibrary.ConvertEpubToXtc(epubFile, xtcFile, options ?? new XtcOptions()))
                     {
                         Console.WriteLine($"  ✓ Success: {xtcFile}");
                         successCount++;

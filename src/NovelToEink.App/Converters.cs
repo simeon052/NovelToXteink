@@ -15,3 +15,15 @@ public sealed class CountToVisibility : IValueConverter
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
         => throw new NotSupportedException();
 }
+
+/// <summary>Xteink 端末を表示名（解像度つき）に変換する。</summary>
+public sealed class DeviceNameConverter : IValueConverter
+{
+    public static readonly DeviceNameConverter Instance = new();
+
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => value is NovelToEink.Xtc.XteinkDevice d ? NovelToEink.Xtc.XteinkDeviceInfo.GetDisplayName(d) : "";
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}

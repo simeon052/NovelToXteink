@@ -33,18 +33,8 @@ namespace NovelToEink.XtcConverter
 
                 options ??= new XtcOptions();
 
-                Console.WriteLine($"Converting EPUB to XTC: {epubPath} -> {xtcPath}");
-                Console.WriteLine($"Resolution: {options.Resolution.Width}x{options.Resolution.Height}");
-                Console.WriteLine($"Vertical Writing: {options.EnableVerticalWriting}");
-                Console.WriteLine($"Font: {options.FontFile ?? "Default"}");
-
-                // Create XTC builder
-                var builder = new X4ProXtcConverter(options);
-                
-                // Build the XTC file
-                builder.ConvertEpubToXtc(epubPath, xtcPath, options);
-                
-                Console.WriteLine($"XTC file created at: {xtcPath}");
+                // 進捗ログは X4ProXtcConverter 側で出す。
+                new X4ProXtcConverter(options).ConvertEpubToXtc(epubPath, xtcPath, options);
                 return true;
             }
             catch (Exception ex)
