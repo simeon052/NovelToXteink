@@ -1,6 +1,8 @@
+using System;
 using System.IO.Compression;
 using System.Text;
 using System.Text.RegularExpressions;
+using NovelToEink.XtcConverter;
 
 namespace NovelToEink.Core;
 
@@ -12,7 +14,7 @@ namespace NovelToEink.Core;
 /// </summary>
 public static partial class EpubBuilder
 {
-    [GeneratedRegex(@"<img\b[^>]*\bsrc=""https?:[^""]*""[^>]*/?>", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"""<img\b[^>]*\bsrc=""https?:[^""]*""[^>]*/>""", RegexOptions.IgnoreCase)]
     private static partial Regex LeftoverImgRegex();
 
     public sealed class BuildResult
@@ -24,9 +26,14 @@ public static partial class EpubBuilder
     }
 
     /// <summary>1作品を（必要なら複数ファイルに分割して）生成する。</summary>
-    /// <param name="outputDir">出力フォルダ。</param>
-    /// <param name="nameTemplate">ファイル名テンプレート（{title}/{author}/{part}）。</param>
-    /// <param name="proofreading">テキスト校正サービス（null なら校正しない）。</param>
+    /// <param name="novel">小説データ</param>
+    /// <param name="cover">表紙画像。null なら表紙ページ無し。</param>
+    /// <param name="options">EPUB生成オプション</param>
+    /// <param name="outputDir">出力フォルダ</param>
+    /// <param name="nameTemplate">ファイル名テンプレート（{title}/{author}/{part}）</param>
+    /// <param name="progress">進行状況報告</param>
+    /// <param name="proofreading">テキスト校正サービス（null なら校正しない）</param>
+    /// <returns>生成結果</returns>
     public static List<BuildResult> BuildSplit(
         NovelDownload novel,
         ScrapedImage? cover,
@@ -49,13 +56,27 @@ public static partial class EpubBuilder
             var fileName = NameFormatter.Format(nameTemplate, meta.Title, meta.Author, part, partCount) + ".epub";
             var outPath = Path.Combine(outputDir, fileName);
             progress?.Report($"分割 {part}/{partCount} を生成中…");
-            results.Add(BuildOne(meta, subset, novel.Images, cover, options, outPath, displayTitle, progress, part, partCount, proofreading));
+            var result = BuildOne(meta, subset, novel.Images, cover, options, outPath, displayTitle, progress, part, partCount, proofreading);
+            
+            // Generate XTC if requested
+            if (options.GenerateXtc)
+            {
+                XtcConversionUtility.GenerateXtcFile(result.OutputPath, options);
+            }
+            
+            results.Add(result);
         }
         return results;
     }
 
+    /// <summary>1作品を1ファイルにまとめて生成する。</summary>
+    /// <param name="novel">小説データ</param>
     /// <param name="cover">表紙画像。null なら表紙ページ無し。</param>
-    /// <param name="proofreading">テキスト校正サービス（null なら校正しない）。</param>
+    /// <param name="options">EPUB生成オプション</param>
+    /// <param name="outputPath">出力ファイルパス</param>
+    /// <param name="progress">進行状況報告</param>
+    /// <param name="proofreading">テキスト校正サービス（null なら校正しない）</param>
+    /// <returns>生成結果</returns>
     public static BuildResult Build(
         NovelDownload novel,
         ScrapedImage? cover,
@@ -63,7 +84,17 @@ public static partial class EpubBuilder
         string outputPath,
         IProgress<string>? progress = null,
         ProofreadingService? proofreading = null)
-        => BuildOne(novel.Metadata, novel.Episodes, novel.Images, cover, options, outputPath, novel.Metadata.Title, progress, 0, 0, proofreading);
+    {
+        var result = BuildOne(novel.Metadata, novel.Episodes, novel.Images, cover, options, outputPath, novel.Metadata.Title, progress, 0, 0, proofreading);
+        
+        // Generate XTC if requested
+        if (options.GenerateXtc)
+        {
+            XtcConversionUtility.GenerateXtcFile(result.OutputPath, options);
+        }
+        
+        return result;
+    }
 
     private static BuildResult BuildOne(
         NovelMetadata meta,
@@ -201,9 +232,7 @@ public static partial class EpubBuilder
 
         if (!string.IsNullOrWhiteSpace(forewordHtml))
             body.Append("<div class=\"note\">\n").Append(RewriteImages(forewordHtml!, urlToFile)).Append("</div>\n<hr/>\n");
-
         body.Append(RewriteImages(bodyHtml, urlToFile));
-
         if (!string.IsNullOrWhiteSpace(afterwordHtml))
             body.Append("\n<hr/>\n<div class=\"note\">\n").Append(RewriteImages(afterwordHtml!, urlToFile)).Append("</div>\n");
 
@@ -239,7 +268,6 @@ public static partial class EpubBuilder
     }
 
     // ---- 各種XML生成 ----
-
     private static string XhtmlDocument(string title, string bodyInner, string cssRelFromText)
     {
         // text/ 配下からは ../style.css
@@ -288,11 +316,11 @@ public static partial class EpubBuilder
                 currentChapter = it.Chapter;
                 if (!string.IsNullOrWhiteSpace(currentChapter))
                 {
-                    sb.Append("<li><span>").Append(XhtmlSanitizer.XmlEscape(currentChapter!.Replace('　', ' '))).Append("</span>\n<ol>\n");
+                    sb.Append("<li><span>" + XhtmlSanitizer.XmlEscape(currentChapter!.Replace('　', ' ')) + "</span>\n<ol>\n");
                     inChapterListOpen = true;
                 }
             }
-            sb.Append("<li><a href=\"").Append(it.File).Append("\">")
+            sb.Append("<li><a href=\"" + it.File + "\">")
               .Append(XhtmlSanitizer.XmlEscape(it.Title.Replace('　', ' '))).Append("</a></li>\n");
         }
         if (inChapterListOpen) sb.Append("</ol></li>\n");

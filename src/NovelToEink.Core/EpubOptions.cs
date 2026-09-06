@@ -47,6 +47,15 @@ public sealed class EpubOptions
 
     /// <summary>テキスト校正を有効にする（%AppData%\NovelToEink\proofreading.json のルールを適用）。</summary>
     public bool EnableProofreading { get; set; } = true;
+    /// <summary>
+    /// XTCファイルを同時に生成するか
+    /// </summary>
+    public bool GenerateXtc { get; set; } = false;
+
+    /// <summary>
+    /// XTC変換用のフォントファイル（空文字列の場合はデフォルト）
+    /// </summary>
+    public string XtcFontFile { get; set; } = "";
 }
 
 /// <summary>ダウンロード時の挙動。</summary>
