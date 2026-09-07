@@ -18,20 +18,23 @@ public sealed record XtcFont(string DisplayName, string FilePath, string Source)
 /// </summary>
 public static class FontFinder
 {
-    // 明朝を先に置く。小説本文は明朝が読みやすく、E-Ink でも線が潰れにくい。
+    // 先頭が自動選択の既定になる。1bit へ 2 値化する都合上、線が太く均一な書体ほど有利で、
+    // 明朝の細い横画は小さめの文字サイズだと 1px になって飛びやすい。
+    // 24px で同じ本文を描いた黒画素率（高いほど線が太い）:
+    //   BIZ UDゴシック 3.58% / MS ゴシック 3.56% / 游明朝 Demibold 3.04% / MS 明朝 2.20%
     private static readonly (string File, string Name)[] WindowsJapaneseFonts =
     [
-        ("msmincho.ttc", "MS 明朝"),
-        ("yumin.ttf", "游明朝"),
-        ("yuminl.ttf", "游明朝 Light"),
+        ("BIZ-UDGothicR.ttc", "BIZ UDゴシック"),
+        ("BIZ-UDMinchoM.ttc", "BIZ UD明朝 Medium"),
+        ("YuGothM.ttc", "游ゴシック Medium"),
+        ("meiryo.ttc", "メイリオ"),
         ("yumindb.ttf", "游明朝 Demibold"),
         ("HGRME.TTC", "HG明朝E"),
         ("msgothic.ttc", "MS ゴシック"),
-        ("YuGothM.ttc", "游ゴシック Medium"),
+        ("msmincho.ttc", "MS 明朝"),
+        ("yumin.ttf", "游明朝"),
+        ("yuminl.ttf", "游明朝 Light"),
         ("YuGothR.ttc", "游ゴシック"),
-        ("meiryo.ttc", "メイリオ"),
-        ("BIZ-UDMinchoM.ttc", "BIZ UD明朝 Medium"),
-        ("BIZ-UDGothicR.ttc", "BIZ UDゴシック"),
     ];
 
     private static readonly string[] FontExtensions = [".ttf", ".ttc", ".otf", ".otc"];

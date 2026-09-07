@@ -65,6 +65,9 @@ public sealed class EpubOptions
     /// <summary>XTC 本文の文字サイズ（px）。</summary>
     public int XtcFontSize { get; set; } = 36;
 
+    /// <summary>XTC 本文の 2 値化しきい値。大きいほど線が太くなる。</summary>
+    public int XtcTextThreshold { get; set; } = 200;
+
     // ValueTuple は System.Text.Json の既定設定では永続化されない。
     // EpubOptions は library.json に保存されるので int 4 本で持つ。
     /// <summary>XTC の上余白（px）。既定 3px。</summary>

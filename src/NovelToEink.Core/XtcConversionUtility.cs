@@ -57,6 +57,7 @@ public static class XtcConversionUtility
         RenderRuby = epubOptions.KeepRuby,
         IncludeImages = epubOptions.IncludeInlineImages,
         FontSize = epubOptions.XtcFontSize,
+        TextThreshold = epubOptions.XtcTextThreshold,
         // 要素名で明示的に対応付ける。位置だけで渡すと上下左右が入れ替わっても気付けない。
         Padding = (
             Top: epubOptions.XtcPaddingTop,

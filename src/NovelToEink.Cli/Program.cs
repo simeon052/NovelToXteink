@@ -34,6 +34,7 @@ namespace NovelToEink.Cli
             var device = XteinkDevice.X4Pro;
             var vertical = true;
             var fontSize = 36;
+            var threshold = 200;
             var padding = (Top: 3, Bottom: 0, Left: 0, Right: 0);
 
             for (int i = 0; i < args.Length; i++)
@@ -71,6 +72,15 @@ namespace NovelToEink.Cli
                         if (!int.TryParse(args[++i], out fontSize) || fontSize < 8 || fontSize > 200)
                         {
                             Console.WriteLine($"Invalid font size: {args[i]} (expected 8-200)");
+                            return 1;
+                        }
+                        break;
+
+                    case "--threshold":
+                        if (i + 1 >= args.Length) { Console.WriteLine("Missing value for " + args[i]); return 1; }
+                        if (!int.TryParse(args[++i], out threshold) || threshold < 128 || threshold > 250)
+                        {
+                            Console.WriteLine($"Invalid threshold: {args[i]} (expected 128-250)");
                             return 1;
                         }
                         break;
@@ -119,6 +129,7 @@ namespace NovelToEink.Cli
                 Device = device,
                 FontFile = fontFile,
                 FontSize = fontSize,
+                TextThreshold = threshold,
                 Padding = padding,
                 Vertical = vertical,
             };
@@ -177,7 +188,7 @@ namespace NovelToEink.Cli
             Console.WriteLine("-----------------------------");
             Console.WriteLine("");
             Console.WriteLine("Usage:");
-            Console.WriteLine("  NovelToEink.Cli <path> [-o <outputDir>] [-d X3|X4Pro] [-f <fontFile>] [--horizontal] [--fontsize <px>] [--padding <t,b,l,r>]");
+            Console.WriteLine("  NovelToEink.Cli <path> [-o <outputDir>] [-d X3|X4Pro] [-f <fontFile>] [--horizontal] [--fontsize <px>] [--padding <t,b,l,r>] [--threshold <n>]");
             Console.WriteLine("");
             Console.WriteLine("Arguments:");
             Console.WriteLine("  <path>      EPUB file or a directory containing EPUB files");
@@ -189,6 +200,7 @@ namespace NovelToEink.Cli
             Console.WriteLine("      --horizontal    Lay out horizontally instead of Japanese vertical writing");
             Console.WriteLine("      --fontsize <px>     Body font size in pixels, 8-200 (default: 36)");
             Console.WriteLine("      --padding <t,b,l,r>  Extra margin in pixels, added to the built-in gutter (default: 3,0,0,0)");
+            Console.WriteLine("      --threshold <n>     Binarization threshold, 128-250. Higher = bolder strokes (default: 200)");
             Console.WriteLine("      --list-fonts    List the fonts available for rendering");
             Console.WriteLine("  -h, --help          Show this help");
             Console.WriteLine("");

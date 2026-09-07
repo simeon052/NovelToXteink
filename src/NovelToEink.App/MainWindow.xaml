@@ -120,6 +120,15 @@
                     </StackPanel>
 
                     <StackPanel Orientation="Horizontal" Margin="0,0,20,0" VerticalAlignment="Center">
+                        <TextBlock Text="線の太さ:" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource Muted}" Margin="0,0,4,0"/>
+                        <TextBox Style="{StaticResource Field}" Width="52" FontSize="12" Padding="6,3"
+                                 VerticalAlignment="Center"
+                                 Text="{Binding XtcTextThreshold, UpdateSourceTrigger=LostFocus}"
+                                 ToolTip="2値化のしきい値。大きいほど線が太くなります。128〜250、既定 200。&#10;細いフォントで文字が薄いときに上げてください。"/>
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal" Margin="0,0,20,0" VerticalAlignment="Center">
                         <TextBlock Text="余白(px)" VerticalAlignment="Center"
                                    Foreground="{DynamicResource Muted}" Margin="0,0,8,0"/>
                         <TextBlock Text="上" VerticalAlignment="Center"

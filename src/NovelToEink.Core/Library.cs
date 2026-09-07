@@ -137,6 +137,12 @@ public sealed class AppSettings
     /// <summary>XTC 本文の文字サイズ（px）。</summary>
     public int XtcFontSize { get; set; } = 36;
 
+    /// <summary>
+    /// XTC 本文の 2 値化しきい値。この値より明るい画素を白にするので、
+    /// 大きいほどアンチエイリアスの縁が黒側に倒れて線が太くなる。
+    /// </summary>
+    public int XtcTextThreshold { get; set; } = 200;
+
     // 余白は px 単位。ValueTuple はフィールドなので System.Text.Json が既定で
     // 永続化してくれない。設定として保存する必要があるので int 4 本で持つ。
     /// <summary>XTC の上余白（px）。既定 3px。</summary>
@@ -196,6 +202,7 @@ public sealed class AppSettings
         XtcDevice = XtcDevice,
         XtcFontFile = XtcFontFile,
         XtcFontSize = XtcFontSize,
+        XtcTextThreshold = XtcTextThreshold,
         XtcPaddingTop = XtcPaddingTop,
         XtcPaddingBottom = XtcPaddingBottom,
         XtcPaddingLeft = XtcPaddingLeft,

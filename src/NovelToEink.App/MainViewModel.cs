@@ -178,6 +178,23 @@ public sealed class MainViewModel : ViewModelBase
         }
     }
 
+    /// <summary>
+    /// 本文の 2 値化しきい値。大きいほど線が太くなる。128〜250 に丸める。
+    /// 極端な値にすると全面白／全面黒になるため範囲を制限している。
+    /// </summary>
+    public int XtcTextThreshold
+    {
+        get => _settings.XtcTextThreshold;
+        set
+        {
+            var v = Math.Clamp(value, 128, 250);
+            if (_settings.XtcTextThreshold == v) return;
+            _settings.XtcTextThreshold = v;
+            _settings.Save();
+            OnChanged();
+        }
+    }
+
     /// <summary>上余白（px）。</summary>
     public int XtcPaddingTop
     {
