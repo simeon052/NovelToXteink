@@ -134,6 +134,29 @@ public sealed class AppSettings
     /// <summary>XTC 描画に使うフォントファイル。空なら自動選択。</summary>
     public string XtcFontFile { get; set; } = "";
 
+    /// <summary>XTC 本文の文字サイズ（px）。</summary>
+    public int XtcFontSize { get; set; } = 36;
+
+    /// <summary>
+    /// XTC 本文の 2 値化しきい値。この値より明るい画素を白にするので、
+    /// 大きいほどアンチエイリアスの縁が黒側に倒れて線が太くなる。
+    /// </summary>
+    public int XtcTextThreshold { get; set; } = 200;
+
+    // 余白は px 単位。ValueTuple はフィールドなので System.Text.Json が既定で
+    // 永続化してくれない。設定として保存する必要があるので int 4 本で持つ。
+    /// <summary>XTC の上余白（px）。既定 3px。</summary>
+    public int XtcPaddingTop { get; set; } = 3;
+
+    /// <summary>XTC の下余白（px）。</summary>
+    public int XtcPaddingBottom { get; set; }
+
+    /// <summary>XTC の左余白（px）。</summary>
+    public int XtcPaddingLeft { get; set; }
+
+    /// <summary>XTC の右余白（px）。</summary>
+    public int XtcPaddingRight { get; set; }
+
     /// <summary>
     /// 表紙を自動で決めて追加処理を止めないか。
     /// true なら公式表紙（無ければ文字生成表紙）を暫定で入れ、候補は裏で集める。
@@ -178,5 +201,11 @@ public sealed class AppSettings
         GenerateXtc = GenerateXtc,
         XtcDevice = XtcDevice,
         XtcFontFile = XtcFontFile,
+        XtcFontSize = XtcFontSize,
+        XtcTextThreshold = XtcTextThreshold,
+        XtcPaddingTop = XtcPaddingTop,
+        XtcPaddingBottom = XtcPaddingBottom,
+        XtcPaddingLeft = XtcPaddingLeft,
+        XtcPaddingRight = XtcPaddingRight,
     };
 }

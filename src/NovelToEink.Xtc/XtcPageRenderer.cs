@@ -16,6 +16,14 @@ public sealed class XtcPageRenderer : IDisposable
     private readonly PageCanvas _page;
     private readonly int _pageWidth;
     private readonly int _pageHeight;
+    // Padding を加算した実効余白。組版中はこちらだけを見る
+    // （options.Margin* を直接参照すると余白指定が一部にしか効かなくなる）。
+    private readonly int _marginTop;
+    private readonly int _marginBottom;
+    private readonly int _marginLeft;
+    private readonly int _marginRight;
+    private readonly int _lineSpacing;
+    private readonly int _fontSize;
 
     private readonly Action<byte[], int, int> _emitPage;
 
@@ -38,9 +46,15 @@ public sealed class XtcPageRenderer : IDisposable
         _options = options;
         _emitPage = emitPage;
         (_pageWidth, _pageHeight) = options.Resolution;
+        _fontSize = options.FontSize;
+        _marginTop = options.EffectiveTop;
+        _marginBottom = options.EffectiveBottom;
+        _marginLeft = options.EffectiveLeft;
+        _marginRight = options.EffectiveRight;
+        _lineSpacing = options.LineSpacing;
 
         _typeface = FontFinder.Load(options.FontFile, bundledFontDirectory);
-        _bodyFont = new SKFont(_typeface, options.FontSize) { Edging = SKFontEdging.Antialias, Subpixel = false };
+        _bodyFont = new SKFont(_typeface, _fontSize) { Edging = SKFontEdging.Antialias, Subpixel = false };
         _rubyFont = new SKFont(_typeface, options.RubyFontSize) { Edging = SKFontEdging.Antialias, Subpixel = false };
         _inkPaint = new SKPaint { Color = SKColors.Black, IsAntialias = true };
 
@@ -143,7 +157,7 @@ public sealed class XtcPageRenderer : IDisposable
             }
 
             // 句読点は回転すると読めないので、マスの右上へ寄せて縦組みらしく見せる。
-            DrawAt(original, _cursorX + _options.FontSize * 0.5f, _cursorY - _options.FontSize * 0.22f);
+            DrawAt(original, _cursorX + _fontSize * 0.5f, _cursorY - _fontSize * 0.22f);
             return;
         }
 
@@ -155,15 +169,15 @@ public sealed class XtcPageRenderer : IDisposable
         var text = c.ToString();
         var width = _bodyFont.MeasureText(text);
         // 半角文字はマスの中央に置く。全角はマス幅と一致するので実質そのまま。
-        var offsetX = Math.Max(0f, (_options.FontSize - width) / 2f);
+        var offsetX = Math.Max(0f, (_fontSize - width) / 2f);
         _page.Canvas.DrawText(text, cellLeft + offsetX, cellTop + BaselineOffset(_bodyFont), _bodyFont, _inkPaint);
     }
 
     private void DrawRotated(char c)
     {
         var canvas = _page.Canvas;
-        var centerX = _cursorX + _options.FontSize / 2f;
-        var centerY = _cursorY + _options.FontSize / 2f;
+        var centerX = _cursorX + _fontSize / 2f;
+        var centerY = _cursorY + _fontSize / 2f;
 
         canvas.Save();
         canvas.RotateDegrees(90f, centerX, centerY);
@@ -178,11 +192,11 @@ public sealed class XtcPageRenderer : IDisposable
 
     private void DrawCombinedPair(char first, char second)
     {
-        var size = _options.FontSize * 0.75f;
+        var size = _fontSize * 0.75f;
         using var font = new SKFont(_typeface, size) { Edging = SKFontEdging.Antialias, Subpixel = false };
 
-        var half = _options.FontSize / 2f;
-        var baseline = _cursorY + BaselineOffset(font) + (_options.FontSize - size) / 2f;
+        var half = _fontSize / 2f;
+        var baseline = _cursorY + BaselineOffset(font) + (_fontSize - size) / 2f;
 
         DrawCentered(first, _cursorX, half, baseline, font);
         DrawCentered(second, _cursorX + half, half, baseline, font);
@@ -197,18 +211,18 @@ public sealed class XtcPageRenderer : IDisposable
 
     private void DrawRuby(string ruby, float columnLeft, float baseTop, int baseGlyphCount)
     {
-        var baseStep = _options.FontSize + 2f;
+        var baseStep = _fontSize + 2f;
         var rubyStep = _options.RubyFontSize + 2f;
         var baseLength = baseGlyphCount * baseStep;
         var rubyLength = ruby.Length * rubyStep;
 
         // 親文字列の中央にルビ列の中央を合わせる。
         var y = baseTop + (baseLength - rubyLength) / 2f;
-        var x = columnLeft + _options.FontSize + 4f;
+        var x = columnLeft + _fontSize + 4f;
 
         foreach (var c in ruby)
         {
-            if (y >= _options.MarginTop && y < _pageHeight - _options.MarginBottom - _options.RubyFontSize)
+            if (y >= _marginTop && y < _pageHeight - _marginBottom - _options.RubyFontSize)
                 _page.Canvas.DrawText(c.ToString(), x, y + BaselineOffset(_rubyFont), _rubyFont, _inkPaint);
             y += rubyStep;
         }
@@ -220,7 +234,7 @@ public sealed class XtcPageRenderer : IDisposable
         if (probe is null) return;
 
         var aspect = probe.Height > 0 ? (float)probe.Width / probe.Height : 1f;
-        var isIllustration = probe.Height >= 400 || (aspect > 0.5f && probe.Height > _options.FontSize * 4);
+        var isIllustration = probe.Height >= 400 || (aspect > 0.5f && probe.Height > _fontSize * 4);
 
         if (isIllustration)
         {
@@ -243,9 +257,9 @@ public sealed class XtcPageRenderer : IDisposable
 
         // 外字・アイコンは 1 文字ぶんのマスに収める。
         PrepareCellFor('あ');
-        var height = _options.FontSize;
+        var height = _fontSize;
         var width = Math.Max(1, (int)(probe.Width * ((float)height / probe.Height)));
-        var destination = SKRect.Create(_cursorX + (_options.FontSize - width) / 2f, _cursorY, width, height);
+        var destination = SKRect.Create(_cursorX + (_fontSize - width) / 2f, _cursorY, width, height);
         using var paint = new SKPaint { IsAntialias = true };
         using var image = SKImage.FromBitmap(probe);
         _page.Canvas.DrawImage(image, destination, new SKSamplingOptions(SKCubicResampler.Mitchell), paint);
@@ -254,8 +268,8 @@ public sealed class XtcPageRenderer : IDisposable
 
     private void Advance()
     {
-        if (_options.Vertical) _cursorY += _options.FontSize + 2;
-        else _cursorX += _options.FontSize + 2;
+        if (_options.Vertical) _cursorY += _fontSize + 2;
+        else _cursorX += _fontSize + 2;
     }
 
     /// <summary>
@@ -265,8 +279,8 @@ public sealed class XtcPageRenderer : IDisposable
     private bool PrepareCellFor(char next)
     {
         var overflows = _options.Vertical
-            ? _cursorY > _pageHeight - _options.MarginBottom - _options.FontSize
-            : _cursorX > _pageWidth - _options.MarginRight - _options.FontSize;
+            ? _cursorY > _pageHeight - _marginBottom - _fontSize
+            : _cursorX > _pageWidth - _marginRight - _fontSize;
 
         if (overflows)
         {
@@ -286,10 +300,10 @@ public sealed class XtcPageRenderer : IDisposable
 
     private bool IsLastCellOfLine()
     {
-        var step = _options.FontSize + 2;
+        var step = _fontSize + 2;
         return _options.Vertical
-            ? _cursorY + step > _pageHeight - _options.MarginBottom - _options.FontSize
-            : _cursorX + step > _pageWidth - _options.MarginRight - _options.FontSize;
+            ? _cursorY + step > _pageHeight - _marginBottom - _fontSize
+            : _cursorX + step > _pageWidth - _marginRight - _fontSize;
     }
 
     private void NewLine()
@@ -297,19 +311,19 @@ public sealed class XtcPageRenderer : IDisposable
         if (_options.Vertical)
         {
             // 行頭で改行指示が来た場合は空行を作らない。
-            if (Math.Abs(_cursorY - _options.MarginTop) < 0.5f && _page.IsDirty) return;
+            if (Math.Abs(_cursorY - _marginTop) < 0.5f && _page.IsDirty) return;
 
-            _cursorY = _options.MarginTop;
-            _cursorX -= _options.LineSpacing;
-            if (_cursorX < _options.MarginLeft) FlushPage();
+            _cursorY = _marginTop;
+            _cursorX -= _lineSpacing;
+            if (_cursorX < _marginLeft) FlushPage();
         }
         else
         {
-            if (Math.Abs(_cursorX - _options.MarginLeft) < 0.5f && _page.IsDirty) return;
+            if (Math.Abs(_cursorX - _marginLeft) < 0.5f && _page.IsDirty) return;
 
-            _cursorX = _options.MarginLeft;
-            _cursorY += _options.LineSpacing;
-            if (_cursorY > _pageHeight - _options.MarginBottom - _options.FontSize) FlushPage();
+            _cursorX = _marginLeft;
+            _cursorY += _lineSpacing;
+            if (_cursorY > _pageHeight - _marginBottom - _fontSize) FlushPage();
         }
     }
 
@@ -335,13 +349,13 @@ public sealed class XtcPageRenderer : IDisposable
         if (_options.Vertical)
         {
             // 右端から書き始める。ルビ 1 列ぶんの余地を右に残しておく。
-            _cursorX = _pageWidth - _options.FontSize - (_options.RubyFontSize + 4) - _options.MarginRight;
-            _cursorY = _options.MarginTop;
+            _cursorX = _pageWidth - _fontSize - (_options.RubyFontSize + 4) - _marginRight;
+            _cursorY = _marginTop;
         }
         else
         {
-            _cursorX = _options.MarginLeft;
-            _cursorY = _options.MarginTop;
+            _cursorX = _marginLeft;
+            _cursorY = _marginTop;
         }
     }
 

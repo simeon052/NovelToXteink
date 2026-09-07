@@ -33,6 +33,9 @@ namespace NovelToEink.Cli
             string? fontFile = null;
             var device = XteinkDevice.X4Pro;
             var vertical = true;
+            var fontSize = 36;
+            var threshold = 200;
+            var padding = (Top: 3, Bottom: 0, Left: 0, Right: 0);
 
             for (int i = 0; i < args.Length; i++)
             {
@@ -62,6 +65,33 @@ namespace NovelToEink.Cli
 
                     case "--horizontal":
                         vertical = false;
+                        break;
+
+                    case "--fontsize":
+                        if (i + 1 >= args.Length) { Console.WriteLine("Missing value for " + args[i]); return 1; }
+                        if (!int.TryParse(args[++i], out fontSize) || fontSize < 8 || fontSize > 200)
+                        {
+                            Console.WriteLine($"Invalid font size: {args[i]} (expected 8-200)");
+                            return 1;
+                        }
+                        break;
+
+                    case "--threshold":
+                        if (i + 1 >= args.Length) { Console.WriteLine("Missing value for " + args[i]); return 1; }
+                        if (!int.TryParse(args[++i], out threshold) || threshold < 128 || threshold > 250)
+                        {
+                            Console.WriteLine($"Invalid threshold: {args[i]} (expected 128-250)");
+                            return 1;
+                        }
+                        break;
+
+                    case "--padding":
+                        if (i + 1 >= args.Length) { Console.WriteLine("Missing value for " + args[i]); return 1; }
+                        if (!TryParsePadding(args[++i], out padding))
+                        {
+                            Console.WriteLine($"Invalid padding: {args[i]} (expected 4 non-negative integers, e.g. 20,20,10,10)");
+                            return 1;
+                        }
                         break;
 
                     default:
@@ -94,11 +124,14 @@ namespace NovelToEink.Cli
                 return 1;
             }
 
-            var options = new XtcOptions
+            var options = new XtcRenderOptions
             {
                 Device = device,
                 FontFile = fontFile,
-                EnableVerticalWriting = vertical,
+                FontSize = fontSize,
+                TextThreshold = threshold,
+                Padding = padding,
+                Vertical = vertical,
             };
 
             var inputDir = isDirectory ? inputPath : Path.GetDirectoryName(inputPath)!;
@@ -120,6 +153,21 @@ namespace NovelToEink.Cli
             return ok ? 0 : 1;
         }
 
+        /// <summary>"top,bottom,left,right" を余白として解釈する。</summary>
+        static bool TryParsePadding(string value, out (int Top, int Bottom, int Left, int Right) padding)
+        {
+            padding = (0, 0, 0, 0);
+            var parts = value.Split(',');
+            if (parts.Length != 4) return false;
+
+            var v = new int[4];
+            for (var i = 0; i < 4; i++)
+                if (!int.TryParse(parts[i].Trim(), out v[i]) || v[i] < 0) return false;
+
+            padding = (v[0], v[1], v[2], v[3]);
+            return true;
+        }
+
         static void PrintFonts()
         {
             var fonts = FontFinder.Enumerate();
@@ -137,10 +185,10 @@ namespace NovelToEink.Cli
         static void PrintHelp()
         {
             Console.WriteLine("NovelToEink EPUB to XTC Converter");
-            Console.WriteLine("---------------------------------");
+            Console.WriteLine("-----------------------------");
             Console.WriteLine("");
             Console.WriteLine("Usage:");
-            Console.WriteLine("  NovelToEink.Cli <path> [-o <outputDir>] [-d X3|X4Pro] [-f <fontFile>] [--horizontal]");
+            Console.WriteLine("  NovelToEink.Cli <path> [-o <outputDir>] [-d X3|X4Pro] [-f <fontFile>] [--horizontal] [--fontsize <px>] [--padding <t,b,l,r>] [--threshold <n>]");
             Console.WriteLine("");
             Console.WriteLine("Arguments:");
             Console.WriteLine("  <path>      EPUB file or a directory containing EPUB files");
@@ -150,12 +198,15 @@ namespace NovelToEink.Cli
             Console.WriteLine("  -d, --device <id>   Target device: X3 (528x792) or X4Pro (480x800, default)");
             Console.WriteLine("  -f, --font <file>   Font file to use for rendering (default: auto-detected)");
             Console.WriteLine("      --horizontal    Lay out horizontally instead of Japanese vertical writing");
+            Console.WriteLine("      --fontsize <px>     Body font size in pixels, 8-200 (default: 36)");
+            Console.WriteLine("      --padding <t,b,l,r>  Extra margin in pixels, added to the built-in gutter (default: 3,0,0,0)");
+            Console.WriteLine("      --threshold <n>     Binarization threshold, 128-250. Higher = bolder strokes (default: 200)");
             Console.WriteLine("      --list-fonts    List the fonts available for rendering");
             Console.WriteLine("  -h, --help          Show this help");
             Console.WriteLine("");
             Console.WriteLine("Examples:");
             Console.WriteLine("  NovelToEink.Cli book.epub -o out -d X3");
-            Console.WriteLine("  NovelToEink.Cli mybooks -o out -d X4Pro -f C:/Windows/Fonts/msmincho.ttc");
+            Console.WriteLine("  NovelToEink.Cli mybooks -o out -d X4Pro -f C:/Windows/Fonts/msmincho.ttc --fontsize 48 --padding 20,20,10,10");
         }
     }
 }

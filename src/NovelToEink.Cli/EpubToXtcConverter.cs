@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using NovelToEink.Xtc;
 using NovelToEink.XtcConverter;
 
 namespace NovelToEink.Cli
@@ -20,7 +21,7 @@ namespace NovelToEink.Cli
         /// <param name="outputDirectory">Directory to save XTC files</param>
         /// <param name="options">Conversion options (device, font, layout)</param>
         /// <returns>Conversion statistics</returns>
-        public static (int success, int failed) ConvertDirectory(string inputDirectory, string outputDirectory, XtcOptions? options = null)
+        public static (int success, int failed) ConvertDirectory(string inputDirectory, string outputDirectory, XtcRenderOptions? options = null)
         {
             if (!Directory.Exists(inputDirectory))
             {
@@ -46,7 +47,7 @@ namespace NovelToEink.Cli
                     
                     Console.WriteLine($"Converting: {fileName}");
                     
-                    if (XtcConverterLibrary.ConvertEpubToXtc(epubFile, xtcFile, options ?? new XtcOptions()))
+                    if (XtcConverterLibrary.ConvertEpubToXtc(epubFile, xtcFile, options ?? new XtcRenderOptions()))
                     {
                         Console.WriteLine($"  ✓ Success: {xtcFile}");
                         successCount++;

@@ -164,6 +164,93 @@ public sealed class MainViewModel : ViewModelBase
         }
     }
 
+    /// <summary>本文の文字サイズ（px）。8〜200 に丸める。</summary>
+    public int XtcFontSize
+    {
+        get => _settings.XtcFontSize;
+        set
+        {
+            var v = Math.Clamp(value, 8, 200);
+            if (_settings.XtcFontSize == v) return;
+            _settings.XtcFontSize = v;
+            _settings.Save();
+            OnChanged();
+        }
+    }
+
+    /// <summary>
+    /// 本文の 2 値化しきい値。大きいほど線が太くなる。128〜250 に丸める。
+    /// 極端な値にすると全面白／全面黒になるため範囲を制限している。
+    /// </summary>
+    public int XtcTextThreshold
+    {
+        get => _settings.XtcTextThreshold;
+        set
+        {
+            var v = Math.Clamp(value, 128, 250);
+            if (_settings.XtcTextThreshold == v) return;
+            _settings.XtcTextThreshold = v;
+            _settings.Save();
+            OnChanged();
+        }
+    }
+
+    /// <summary>上余白（px）。</summary>
+    public int XtcPaddingTop
+    {
+        get => _settings.XtcPaddingTop;
+        set
+        {
+            var v = Math.Max(0, value);
+            if (_settings.XtcPaddingTop == v) return;
+            _settings.XtcPaddingTop = v;
+            _settings.Save();
+            OnChanged();
+        }
+    }
+
+    /// <summary>下余白（px）。</summary>
+    public int XtcPaddingBottom
+    {
+        get => _settings.XtcPaddingBottom;
+        set
+        {
+            var v = Math.Max(0, value);
+            if (_settings.XtcPaddingBottom == v) return;
+            _settings.XtcPaddingBottom = v;
+            _settings.Save();
+            OnChanged();
+        }
+    }
+
+    /// <summary>左余白（px）。</summary>
+    public int XtcPaddingLeft
+    {
+        get => _settings.XtcPaddingLeft;
+        set
+        {
+            var v = Math.Max(0, value);
+            if (_settings.XtcPaddingLeft == v) return;
+            _settings.XtcPaddingLeft = v;
+            _settings.Save();
+            OnChanged();
+        }
+    }
+
+    /// <summary>右余白（px）。</summary>
+    public int XtcPaddingRight
+    {
+        get => _settings.XtcPaddingRight;
+        set
+        {
+            var v = Math.Max(0, value);
+            if (_settings.XtcPaddingRight == v) return;
+            _settings.XtcPaddingRight = v;
+            _settings.Save();
+            OnChanged();
+        }
+    }
+
     // ---- ダークモード ----
     public bool IsDarkMode
     {

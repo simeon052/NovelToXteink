@@ -6,19 +6,20 @@ namespace NovelToEink.Xtc;
 internal static class ImageDithering
 {
     /// <summary>
-    /// 画像をページに収まるよう縮小し、白地の中央に配置したグレースケール画素列を返す。
+    /// 画像をページ一杯に拡大・縮小し、白地の中央に配置したグレースケール画素列を返す。
+    /// 縦横比は保つので、比率が合わない分は白い帯になる（切り取ると表紙の題字が欠けるため）。
     /// </summary>
     public static byte[]? FitToPage(byte[] imageData, int pageWidth, int pageHeight)
     {
         using var bitmap = SKBitmap.Decode(imageData);
         if (bitmap is null) return null;
 
+        // 縮小だけでなく拡大もする。表紙がページより小さいときに
+        // 中央へ小さく置かれてしまうのを避ける。
         var scale = Math.Min((float)pageWidth / bitmap.Width, (float)pageHeight / bitmap.Height);
-        // 拡大はしない。元画像が小さいときはそのままの大きさで中央に置く。
-        scale = Math.Min(scale, 1f);
 
-        var targetWidth = Math.Max(1, (int)(bitmap.Width * scale));
-        var targetHeight = Math.Max(1, (int)(bitmap.Height * scale));
+        var targetWidth = Math.Max(1, (int)Math.Round(bitmap.Width * scale));
+        var targetHeight = Math.Max(1, (int)Math.Round(bitmap.Height * scale));
 
         var info = new SKImageInfo(pageWidth, pageHeight, SKColorType.Gray8, SKAlphaType.Opaque);
         using var page = new SKBitmap(info);
