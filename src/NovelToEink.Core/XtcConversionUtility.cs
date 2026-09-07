@@ -14,7 +14,7 @@ public static class XtcConversionUtility
     /// <param name="epubPath">EPUBファイルパス</param>
     /// <param name="xtcPath">出力XTCファイルパス</param>
     /// <param name="options">変換オプション</param>
-    public static void ConvertEpubToXtc(string epubPath, string xtcPath, XtcOptions options)
+    public static void ConvertEpubToXtc(string epubPath, string xtcPath, XtcRenderOptions options)
     {
         try
         {
@@ -38,24 +38,31 @@ public static class XtcConversionUtility
     /// <param name="progress">進捗通知</param>
     /// <param name="cancellationToken">キャンセル用トークン</param>
     public static async Task<XtcResult> ConvertEpubToXtcAsync(
-        string epubPath, string xtcPath, XtcOptions options,
+        string epubPath, string xtcPath, XtcRenderOptions options,
         IProgress<XtcProgress>? progress = null, CancellationToken cancellationToken = default)
     {
         var xtcDir = Path.GetDirectoryName(xtcPath);
         if (!string.IsNullOrEmpty(xtcDir)) Directory.CreateDirectory(xtcDir);
 
-        return await EpubToXtc.ConvertAsync(epubPath, xtcPath, options.ToRenderOptions(), progress, cancellationToken)
+        return await EpubToXtc.ConvertAsync(epubPath, xtcPath, options, progress, cancellationToken)
             .ConfigureAwait(false);
     }
 
     /// <summary><see cref="EpubOptions"/> から XTC 変換オプションを組み立てる。</summary>
-    public static XtcOptions BuildOptions(EpubOptions epubOptions) => new()
+    public static XtcRenderOptions BuildOptions(EpubOptions epubOptions) => new()
     {
         Device = epubOptions.XtcDevice,
-        EnableVerticalWriting = epubOptions.WritingMode == WritingMode.Vertical,
+        Vertical = epubOptions.WritingMode == WritingMode.Vertical,
         FontFile = string.IsNullOrWhiteSpace(epubOptions.XtcFontFile) ? null : epubOptions.XtcFontFile,
         RenderRuby = epubOptions.KeepRuby,
         IncludeImages = epubOptions.IncludeInlineImages,
+        FontSize = epubOptions.XtcFontSize,
+        // 要素名で明示的に対応付ける。位置だけで渡すと上下左右が入れ替わっても気付けない。
+        Padding = (
+            Top: epubOptions.XtcPaddingTop,
+            Bottom: epubOptions.XtcPaddingBottom,
+            Left: epubOptions.XtcPaddingLeft,
+            Right: epubOptions.XtcPaddingRight),
     };
 
     /// <summary>

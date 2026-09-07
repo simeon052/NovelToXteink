@@ -61,6 +61,23 @@ public sealed class EpubOptions
 
     /// <summary>XTC の出力対象端末。解像度はここで決まる（X3: 528x792 / X4 Pro: 480x800）。</summary>
     public XteinkDevice XtcDevice { get; set; } = XteinkDevice.X4Pro;
+    
+    /// <summary>XTC 本文の文字サイズ（px）。</summary>
+    public int XtcFontSize { get; set; } = 36;
+
+    // ValueTuple は System.Text.Json の既定設定では永続化されない。
+    // EpubOptions は library.json に保存されるので int 4 本で持つ。
+    /// <summary>XTC の上余白（px）。既定 3px。</summary>
+    public int XtcPaddingTop { get; set; } = 3;
+
+    /// <summary>XTC の下余白（px）。</summary>
+    public int XtcPaddingBottom { get; set; }
+
+    /// <summary>XTC の左余白（px）。</summary>
+    public int XtcPaddingLeft { get; set; }
+
+    /// <summary>XTC の右余白（px）。</summary>
+    public int XtcPaddingRight { get; set; }
 }
 
 /// <summary>ダウンロード時の挙動。</summary>

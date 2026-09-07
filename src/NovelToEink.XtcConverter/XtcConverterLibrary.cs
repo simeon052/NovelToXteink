@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 using HtmlAgilityPack;
 using SixLabors.ImageSharp;
+using NovelToEink.Xtc;
 
 namespace NovelToEink.XtcConverter
 {
@@ -21,7 +22,7 @@ namespace NovelToEink.XtcConverter
         /// <param name="xtcPath">Path to the output XTC file</param>
         /// <param name="options">Conversion options</param>
         /// <returns>True if conversion was successful</returns>
-        public static bool ConvertEpubToXtc(string epubPath, string xtcPath, XtcOptions? options)
+        public static bool ConvertEpubToXtc(string epubPath, string xtcPath, XtcRenderOptions? options)
         {
             try
             {
@@ -31,7 +32,7 @@ namespace NovelToEink.XtcConverter
                     return false;
                 }
 
-                options ??= new XtcOptions();
+                options ??= new XtcRenderOptions();
 
                 // 進捗ログは X4ProXtcConverter 側で出す。
                 new X4ProXtcConverter(options).ConvertEpubToXtc(epubPath, xtcPath, options);
@@ -53,7 +54,7 @@ namespace NovelToEink.XtcConverter
         public static bool ConvertEpubToXtc(string epubPath, string xtcPath)
         {
             // Default options for X4 Pro
-            var options = new XtcOptions();
+            var options = new XtcRenderOptions();
             
             return ConvertEpubToXtc(epubPath, xtcPath, options);
         }

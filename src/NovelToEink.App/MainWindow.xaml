@@ -109,6 +109,45 @@
                             Command="{Binding ChooseXtcFontCommand}"
                             ToolTip="一覧にないフォントファイル（.ttf / .ttc / .otf）を指定します。"/>
 
+                    <!-- ラベルと入力欄が離れて折り返さないよう、グループ単位でまとめる -->
+                    <StackPanel Orientation="Horizontal" Margin="0,0,20,0" VerticalAlignment="Center">
+                        <TextBlock Text="文字サイズ(px):" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource Muted}" Margin="0,0,4,0"/>
+                        <TextBox Style="{StaticResource Field}" Width="52" FontSize="12" Padding="6,3"
+                                 VerticalAlignment="Center"
+                                 Text="{Binding XtcFontSize, UpdateSourceTrigger=LostFocus}"
+                                 ToolTip="本文の文字サイズ（ピクセル）。8〜200。既定 36。&#10;行送りとルビの大きさはこの値から自動で決まります。"/>
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal" Margin="0,0,20,0" VerticalAlignment="Center">
+                        <TextBlock Text="余白(px)" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource Muted}" Margin="0,0,8,0"/>
+                        <TextBlock Text="上" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource Muted}" Margin="0,0,3,0"/>
+                        <TextBox Style="{StaticResource Field}" Width="42" FontSize="12" Padding="5,3"
+                                 VerticalAlignment="Center" Margin="0,0,8,0"
+                                 Text="{Binding XtcPaddingTop, UpdateSourceTrigger=LostFocus}"
+                                 ToolTip="上の余白（ピクセル）。既定の余白に加算されます。"/>
+                        <TextBlock Text="下" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource Muted}" Margin="0,0,3,0"/>
+                        <TextBox Style="{StaticResource Field}" Width="42" FontSize="12" Padding="5,3"
+                                 VerticalAlignment="Center" Margin="0,0,8,0"
+                                 Text="{Binding XtcPaddingBottom, UpdateSourceTrigger=LostFocus}"
+                                 ToolTip="下の余白（ピクセル）。既定の余白に加算されます。"/>
+                        <TextBlock Text="左" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource Muted}" Margin="0,0,3,0"/>
+                        <TextBox Style="{StaticResource Field}" Width="42" FontSize="12" Padding="5,3"
+                                 VerticalAlignment="Center" Margin="0,0,8,0"
+                                 Text="{Binding XtcPaddingLeft, UpdateSourceTrigger=LostFocus}"
+                                 ToolTip="左の余白（ピクセル）。既定の余白に加算されます。"/>
+                        <TextBlock Text="右" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource Muted}" Margin="0,0,3,0"/>
+                        <TextBox Style="{StaticResource Field}" Width="42" FontSize="12" Padding="5,3"
+                                 VerticalAlignment="Center"
+                                 Text="{Binding XtcPaddingRight, UpdateSourceTrigger=LostFocus}"
+                                 ToolTip="右の余白（ピクセル）。既定の余白に加算されます。"/>
+                    </StackPanel>
+
                     <Button Style="{StaticResource Ghost}" Content="📖 XTCをまとめて変換"
                             Command="{Binding ConvertAllXtcCommand}"
                             ToolTip="ライブラリ内のすべてのEPUBをXTCへ変換します。"/>
