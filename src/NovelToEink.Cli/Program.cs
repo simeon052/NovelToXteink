@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using NovelToEink.Xtc;
 using NovelToEink.XtcConverter;
+using NovelToEink.Core;
 
 namespace NovelToEink.Cli
 {
@@ -14,6 +15,51 @@ namespace NovelToEink.Cli
             {
                 PrintHelp();
                 return 1;
+            }
+
+            // Export/Importコマンドの処理
+            if (args.Length >= 2)
+            {
+                if (args[0].Equals("--export-settings", System.StringComparison.OrdinalIgnoreCase))
+                {
+                    var outputPath = args[1];
+                    var settings = new ExportSettings();
+                    if (SettingsManager.ExportSettings(settings, outputPath))
+                    {
+                        Console.WriteLine($"設定を {outputPath} にエクスポートしました");
+                        return 0;
+                    }
+                    else
+                    {
+                        Console.Error.WriteLine($"設定のエクスポートに失敗しました: {outputPath}");
+                        return 1;
+                    }
+                }
+                else if (args[0].Equals("--import-settings", System.StringComparison.OrdinalIgnoreCase))
+                {
+                    var inputPath = args[1];
+                    var settings = SettingsManager.ImportSettings(inputPath);
+                    if (settings != null)
+                    {
+                        Console.WriteLine($"設定を {inputPath} からインポートしました");
+                        // インポートされた設定を保存
+                        if (SettingsManager.SaveSettings(settings))
+                        {
+                            Console.WriteLine("設定を保存しました");
+                            return 0;
+                        }
+                        else
+                        {
+                            Console.Error.WriteLine("設定の保存に失敗しました");
+                            return 1;
+                        }
+                    }
+                    else
+                    {
+                        Console.Error.WriteLine($"設定のインポートに失敗しました: {inputPath}");
+                        return 1;
+                    }
+                }
             }
 
             switch (args[0].ToLowerInvariant())
@@ -39,174 +85,131 @@ namespace NovelToEink.Cli
 
             for (int i = 0; i < args.Length; i++)
             {
-                switch (args[i])
+                switch (args[i].ToLowerInvariant())
                 {
+                    case "-i":
+                    case "--input":
+                        if (i + 1 < args.Length)
+                            inputPath = args[++i];
+                        break;
                     case "-o":
                     case "--output":
-                        if (i + 1 >= args.Length) { Console.WriteLine("Missing value for " + args[i]); return 1; }
-                        outputDirectory = args[++i];
+                        if (i + 1 < args.Length)
+                            outputDirectory = args[++i];
                         break;
-
                     case "-f":
                     case "--font":
-                        if (i + 1 >= args.Length) { Console.WriteLine("Missing value for " + args[i]); return 1; }
-                        fontFile = args[++i];
+                        if (i + 1 < args.Length)
+                            fontFile = args[++i];
                         break;
-
                     case "-d":
                     case "--device":
-                        if (i + 1 >= args.Length) { Console.WriteLine("Missing value for " + args[i]); return 1; }
-                        if (!XteinkDeviceInfo.TryParse(args[++i], out device))
+                        if (i + 1 < args.Length)
                         {
-                            Console.WriteLine($"Unknown device: {args[i]} (expected X3 or X4Pro)");
-                            return 1;
+                            var deviceStr = args[++i];
+                            if (deviceStr.Equals("x4pro", StringComparison.OrdinalIgnoreCase))
+                                device = XteinkDevice.X4Pro;
+                            else if (deviceStr.Equals("x4", StringComparison.OrdinalIgnoreCase))
+                                device = XteinkDevice.X4;
+                            else if (deviceStr.Equals("x3", StringComparison.OrdinalIgnoreCase))
+                                device = XteinkDevice.X3;
                         }
                         break;
-
+                    case "-h":
                     case "--horizontal":
                         vertical = false;
                         break;
-
-                    case "--fontsize":
-                        if (i + 1 >= args.Length) { Console.WriteLine("Missing value for " + args[i]); return 1; }
-                        if (!int.TryParse(args[++i], out fontSize) || fontSize < 8 || fontSize > 200)
+                    case "-s":
+                    case "--font-size":
+                        if (i + 1 < args.Length)
                         {
-                            Console.WriteLine($"Invalid font size: {args[i]} (expected 8-200)");
-                            return 1;
+                            if (int.TryParse(args[++i], out var fs))
+                                fontSize = fs;
                         }
                         break;
-
+                    case "-t":
                     case "--threshold":
-                        if (i + 1 >= args.Length) { Console.WriteLine("Missing value for " + args[i]); return 1; }
-                        if (!int.TryParse(args[++i], out threshold) || threshold < 128 || threshold > 250)
+                        if (i + 1 < args.Length)
                         {
-                            Console.WriteLine($"Invalid threshold: {args[i]} (expected 128-250)");
-                            return 1;
+                            if (int.TryParse(args[++i], out var th))
+                                threshold = th;
                         }
                         break;
-
                     case "--padding":
-                        if (i + 1 >= args.Length) { Console.WriteLine("Missing value for " + args[i]); return 1; }
-                        if (!TryParsePadding(args[++i], out padding))
+                        if (i + 1 < args.Length)
                         {
-                            Console.WriteLine($"Invalid padding: {args[i]} (expected 4 non-negative integers, e.g. 20,20,10,10)");
-                            return 1;
-                        }
-                        break;
-
-                    default:
-                        if (!args[i].StartsWith("-"))
-                        {
-                            inputPath = args[i];
-                        }
-                        else
-                        {
-                            Console.WriteLine($"Unknown option: {args[i]}");
-                            PrintHelp();
-                            return 1;
+                            var paddingStr = args[++i];
+                            var parts = paddingStr.Split(',');
+                            if (parts.Length == 4)
+                            {
+                                if (int.TryParse(parts[0], out var top) &&
+                                    int.TryParse(parts[1], out var bottom) &&
+                                    int.TryParse(parts[2], out var left) &&
+                                    int.TryParse(parts[3], out var right))
+                                {
+                                    padding = (top, bottom, left, right);
+                                }
+                            }
                         }
                         break;
                 }
             }
 
-            if (inputPath == null)
+            if (string.IsNullOrEmpty(inputPath) || string.IsNullOrEmpty(outputDirectory))
             {
-                Console.WriteLine("Missing input argument");
                 PrintHelp();
                 return 1;
             }
 
-            bool isDirectory = Directory.Exists(inputPath);
-            bool isFile = File.Exists(inputPath);
-            if (!isFile && !isDirectory)
+            try
             {
-                Console.WriteLine($"Input not found: {inputPath}");
+                var converter = new XtcConverterLibrary();
+                converter.Convert(inputPath, outputDirectory, device, vertical, fontSize, threshold, padding, fontFile);
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"Error: {ex.Message}");
                 return 1;
             }
-
-            var options = new XtcRenderOptions
-            {
-                Device = device,
-                FontFile = fontFile,
-                FontSize = fontSize,
-                TextThreshold = threshold,
-                Padding = padding,
-                Vertical = vertical,
-            };
-
-            var inputDir = isDirectory ? inputPath : Path.GetDirectoryName(inputPath)!;
-            var outDir = outputDirectory ?? Path.Combine(inputDir, "converted");
-
-            if (isDirectory)
-            {
-                var (s, f) = EpubToXtcConverter.ConvertDirectory(inputDir, outDir, options);
-                Console.WriteLine($"\nDone. Success={s} Failed={f}");
-                return f == 0 ? 0 : 1;
-            }
-
-            var fileName = Path.GetFileNameWithoutExtension(inputPath);
-            var xtcFile = Path.Combine(outDir, fileName + ".xtc");
-            Console.WriteLine($"Converting: {inputPath}");
-            var ok = XtcConverterLibrary.ConvertEpubToXtc(inputPath, xtcFile, options);
-            if (ok) Console.WriteLine($"✓ XTC: {xtcFile}");
-            else Console.WriteLine("✗ Conversion failed");
-            return ok ? 0 : 1;
-        }
-
-        /// <summary>"top,bottom,left,right" を余白として解釈する。</summary>
-        static bool TryParsePadding(string value, out (int Top, int Bottom, int Left, int Right) padding)
-        {
-            padding = (0, 0, 0, 0);
-            var parts = value.Split(',');
-            if (parts.Length != 4) return false;
-
-            var v = new int[4];
-            for (var i = 0; i < 4; i++)
-                if (!int.TryParse(parts[i].Trim(), out v[i]) || v[i] < 0) return false;
-
-            padding = (v[0], v[1], v[2], v[3]);
-            return true;
-        }
-
-        static void PrintFonts()
-        {
-            var fonts = FontFinder.Enumerate();
-            if (fonts.Count == 0)
-            {
-                Console.WriteLine("利用できるフォントが見つかりませんでした。");
-                return;
-            }
-
-            Console.WriteLine("利用できるフォント:");
-            foreach (var font in fonts)
-                Console.WriteLine($"  [{font.Source}] {font.DisplayName}\n      {font.FilePath}");
         }
 
         static void PrintHelp()
         {
-            Console.WriteLine("NovelToEink EPUB to XTC Converter");
-            Console.WriteLine("-----------------------------");
-            Console.WriteLine("");
+            Console.WriteLine("NovelToEink CLI");
+            Console.WriteLine("Converts EPUB files to XTC format for E-ink devices");
+            Console.WriteLine();
             Console.WriteLine("Usage:");
-            Console.WriteLine("  NovelToEink.Cli <path> [-o <outputDir>] [-d X3|X4Pro] [-f <fontFile>] [--horizontal] [--fontsize <px>] [--padding <t,b,l,r>] [--threshold <n>]");
-            Console.WriteLine("");
-            Console.WriteLine("Arguments:");
-            Console.WriteLine("  <path>      EPUB file or a directory containing EPUB files");
-            Console.WriteLine("");
+            Console.WriteLine("  NovelToEink.Cli.exe [options]");
+            Console.WriteLine();
             Console.WriteLine("Options:");
-            Console.WriteLine("  -o, --output <dir>  Output directory for generated XTC files");
-            Console.WriteLine("  -d, --device <id>   Target device: X3 (528x792) or X4Pro (480x800, default)");
-            Console.WriteLine("  -f, --font <file>   Font file to use for rendering (default: auto-detected)");
-            Console.WriteLine("      --horizontal    Lay out horizontally instead of Japanese vertical writing");
-            Console.WriteLine("      --fontsize <px>     Body font size in pixels, 8-200 (default: 36)");
-            Console.WriteLine("      --padding <t,b,l,r>  Extra margin in pixels, added to the built-in gutter (default: 3,0,0,0)");
-            Console.WriteLine("      --threshold <n>     Binarization threshold, 128-250. Higher = bolder strokes (default: 200)");
-            Console.WriteLine("      --list-fonts    List the fonts available for rendering");
-            Console.WriteLine("  -h, --help          Show this help");
-            Console.WriteLine("");
+            Console.WriteLine("  -i, --input <file>       Input EPUB file");
+            Console.WriteLine("  -o, --output <dir>         Output directory");
+            Console.WriteLine("  -f, --font <file>            Font file (optional)");
+            Console.WriteLine("  -d, --device <device>    Device type (x4pro, x4, x3)");
+            Console.WriteLine("  -h, --horizontal           Horizontal layout (default: vertical)");
+            Console.WriteLine("  -s, --font-size <size>      Font size (default: 36)");
+            Console.WriteLine("  -t, --threshold <value>      Threshold for image processing (default: 200)");
+            Console.WriteLine("  --padding <top,bottom,left,right> Padding values");
+            Console.WriteLine("  --list-fonts             List available fonts");
+            Console.WriteLine("  --export-settings <file>   Export current settings to a file");
+            Console.WriteLine("  --import-settings <file>      Import settings from a file");
+            Console.WriteLine("  -h, --help                 Show this help message");
+            Console.WriteLine();
             Console.WriteLine("Examples:");
-            Console.WriteLine("  NovelToEink.Cli book.epub -o out -d X3");
-            Console.WriteLine("  NovelToEink.Cli mybooks -o out -d X4Pro -f C:/Windows/Fonts/msmincho.ttc --fontsize 48 --padding 20,20,10,10");
+            Console.WriteLine("  NovelToEink.Cli.exe -i input.epub -o output_dir");
+            Console.WriteLine("  NovelToEink.Cli.exe -i input.epub -o output_dir -d x4pro -s 24");
+            Console.WriteLine("  NovelToEink.Cli.exe --export-settings settings.json");
+            Console.WriteLine("  NovelToEink.Cli.exe --import-settings settings.json");
+        }
+
+        static void PrintFonts()
+        {
+            Console.WriteLine("Available fonts:");
+            foreach (var font in XtcConverterLibrary.AvailableFonts)
+            {
+                Console.WriteLine($"  {font}");
+            }
         }
     }
 }
