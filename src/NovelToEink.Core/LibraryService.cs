@@ -1,4 +1,5 @@
 using System.IO;
+using System.Text.Json;
 
 namespace NovelToEink.Core;
 
@@ -248,5 +249,73 @@ public sealed class LibraryService
             }
         }
         Persist();
+    }
+
+    /// <summary>ライブラリと設定をJSONファイルへエクスポートする。</summary>
+    public void ExportLibrary(string filePath)
+    {
+        var exportData = new
+        {
+            ExportedAt = DateTimeOffset.Now,
+            AppVersion = "1.0",
+            Library = Entries,
+            Settings = new
+            {
+                Settings.Vertical,
+                Settings.GrayscaleImages,
+                Settings.IncludeInlineImages,
+                Settings.KeepRuby,
+                Settings.EnableProofreading,
+                Settings.EpisodesPerFile,
+                Settings.RequestDelayMs,
+                Settings.IsDarkMode,
+            }
+        };
+
+        var options = new JsonSerializerOptions { WriteIndented = true };
+        var json = JsonSerializer.Serialize(exportData, options);
+        File.WriteAllText(filePath, json);
+    }
+
+    /// <summary>エクスポートしたJSONからライブラリと設定をインポートする。</summary>
+    public (List<LibraryEntry> Library, Dictionary<string, object> Settings) ImportLibrary(string filePath)
+    {
+        var json = File.ReadAllText(filePath);
+        using var doc = JsonDocument.Parse(json);
+        var root = doc.RootElement;
+
+        var libraryJson = root.GetProperty("Library").GetRawText();
+        var options = new JsonSerializerOptions { Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() } };
+        var library = JsonSerializer.Deserialize<List<LibraryEntry>>(libraryJson, options) ?? [];
+
+        var settingsObj = root.GetProperty("Settings");
+        var settings = new Dictionary<string, object>();
+        foreach (var prop in settingsObj.EnumerateObject())
+        {
+            settings[prop.Name] = prop.Value.GetRawText();
+        }
+
+        return (library, settings);
+    }
+
+    /// <summary>エクスポートしたJSONの設定をアプリ設定に反映させる。</summary>
+    public static void ApplyImportedSettings(AppSettings settings, Dictionary<string, object> importedSettings)
+    {
+        if (importedSettings.TryGetValue("Vertical", out var v) && bool.TryParse(v.ToString(), out var vertical))
+            settings.Vertical = vertical;
+        if (importedSettings.TryGetValue("GrayscaleImages", out var g) && bool.TryParse(g.ToString(), out var grayscale))
+            settings.GrayscaleImages = grayscale;
+        if (importedSettings.TryGetValue("IncludeInlineImages", out var i) && bool.TryParse(i.ToString(), out var inline))
+            settings.IncludeInlineImages = inline;
+        if (importedSettings.TryGetValue("KeepRuby", out var r) && bool.TryParse(r.ToString(), out var ruby))
+            settings.KeepRuby = ruby;
+        if (importedSettings.TryGetValue("EnableProofreading", out var p) && bool.TryParse(p.ToString(), out var proof))
+            settings.EnableProofreading = proof;
+        if (importedSettings.TryGetValue("EpisodesPerFile", out var e) && int.TryParse(e.ToString(), out var episodes))
+            settings.EpisodesPerFile = episodes;
+        if (importedSettings.TryGetValue("RequestDelayMs", out var d) && int.TryParse(d.ToString(), out var delay))
+            settings.RequestDelayMs = delay;
+        if (importedSettings.TryGetValue("IsDarkMode", out var dark) && bool.TryParse(dark.ToString(), out var darkMode))
+            settings.IsDarkMode = darkMode;
     }
 }

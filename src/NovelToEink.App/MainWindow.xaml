@@ -18,11 +18,19 @@
                 <TextBlock Text="なろう / カクヨムの小説を Xteink X3 向け EPUB として管理・更新"
                            Foreground="{DynamicResource Muted}" Margin="0,2,0,0"/>
             </StackPanel>
-            <Button HorizontalAlignment="Right" VerticalAlignment="Top"
-                    Style="{StaticResource Ghost}" Padding="10,6"
-                    Content="{Binding DarkModeToggleLabel}"
-                    Command="{Binding ToggleDarkModeCommand}"
-                    ToolTip="ダーク / ライトモードを切り替えます"/>
+            <StackPanel HorizontalAlignment="Right" VerticalAlignment="Top" Orientation="Horizontal">
+                <Button Style="{StaticResource Ghost}" Padding="10,6" Content="📤 エクスポート" Margin="0,0,8,0"
+                        Command="{Binding ExportLibraryCommand}"
+                        ToolTip="ライブラリと設定をJSONファイルにエクスポートします"/>
+                <Button Style="{StaticResource Ghost}" Padding="10,6" Content="📥 インポート" Margin="0,0,8,0"
+                        Command="{Binding ImportLibraryCommand}"
+                        ToolTip="JSONファイルからライブラリと設定をインポートします"/>
+                <Button HorizontalAlignment="Right" VerticalAlignment="Top"
+                        Style="{StaticResource Ghost}" Padding="10,6"
+                        Content="{Binding DarkModeToggleLabel}"
+                        Command="{Binding ToggleDarkModeCommand}"
+                        ToolTip="ダーク / ライトモードを切り替えます"/>
+            </StackPanel>
         </Grid>
 
         <!-- 追加カード -->
