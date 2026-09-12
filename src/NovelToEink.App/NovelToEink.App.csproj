@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\NovelToEink.Core\NovelToEink.Core.csproj" />
+    <ProjectReference Include="..\NovelToEink.Xtc\NovelToEink.Xtc.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

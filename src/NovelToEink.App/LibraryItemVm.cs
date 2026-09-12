@@ -61,6 +61,22 @@ public sealed class LibraryItemVm : ViewModelBase
 
     public bool HasUpdate => !_isBusy && Entry.Status == UpdateStatus.UpdateAvailable;
 
+    private int _coverCandidateCount;
+    /// <summary>裏で取得できた表紙候補の件数。0 なら印を出さない。</summary>
+    public bool HasCoverCandidates => _coverCandidateCount > 0;
+
+    /// <summary>候補があることが分かるように「表紙」ボタンの表示を変える。</summary>
+    public string CoverButtonLabel => HasCoverCandidates ? $"表紙 ●{_coverCandidateCount}" : "表紙";
+
+    /// <summary>候補の取得完了を反映する。</summary>
+    public void SetCoverCandidateCount(int count)
+    {
+        if (_coverCandidateCount == count) return;
+        _coverCandidateCount = count;
+        OnChanged(nameof(HasCoverCandidates));
+        OnChanged(nameof(CoverButtonLabel));
+    }
+
     private BitmapSource? _thumbnail;
     public BitmapSource? Thumbnail { get => _thumbnail; private set => Set(ref _thumbnail, value); }
 

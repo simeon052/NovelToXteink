@@ -15,7 +15,7 @@
         <Grid DockPanel.Dock="Top" Margin="2,0,2,14">
             <StackPanel>
                 <TextBlock Text="Novel To Xteink" FontSize="22" FontWeight="Bold"/>
-                <TextBlock Text="なろう / カクヨムの小説を Xteink X3 向け EPUB として管理・更新"
+                <TextBlock Text="なろう / カクヨムの小説を Xteink (X3 / X4 Pro) 向け EPUB・XTC として管理・更新"
                            Foreground="{DynamicResource Muted}" Margin="0,2,0,0"/>
             </StackPanel>
             <StackPanel HorizontalAlignment="Right" VerticalAlignment="Top" Orientation="Horizontal">
@@ -43,7 +43,7 @@
 
                 <!-- 左: URL入力 -->
                 <StackPanel Grid.Column="0" Margin="0,0,14,0">
-                    <TextBlock Style="{StaticResource SectionTitle}" Text="作品URL（複数可・改行/スペース区切り）"/>
+                    <TextBlock Style="{StaticResource SectionTitle}" Text="作品URL または タイトル（1行に1件）"/>
                     <TextBox Style="{StaticResource Field}" Height="74" AcceptsReturn="True"
                              TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"
                              VerticalContentAlignment="Top"
@@ -69,6 +69,8 @@
                     <CheckBox Content="挿絵を含める" IsChecked="{Binding IncludeInlineImages}" Margin="0,0,16,0"/>
                     <CheckBox Content="グレースケール" IsChecked="{Binding GrayscaleImages}" Margin="0,0,16,0"/>
                     <CheckBox Content="ルビを残す" IsChecked="{Binding KeepRuby}" Margin="0,0,16,0"/>
+                    <CheckBox Content="表紙を自動選択" IsChecked="{Binding AutoCover}" Margin="0,0,16,0"
+                              ToolTip="追加時に表紙選択で止まらず、公式表紙（無ければ文字生成表紙）を暫定で使います。候補は裏で集め、あとから「表紙」ボタンで差し替えられます。"/>
                     <CheckBox Content="テキスト校正" IsChecked="{Binding EnableProofreading}" Margin="0,0,6,0"
                               ToolTip="narou.rb互換の校正ルールを適用します。ルールは proofreading.json で編集できます。"/>
                     <Button Style="{StaticResource Ghost}" Content="ルール編集" Padding="8,3" FontSize="11" Margin="0,0,24,0"
@@ -79,6 +81,93 @@
                              ToolTip="この話数ごとにEPUBを分割します（既定200）。"/>
                     <TextBlock Text="間隔(ms):" VerticalAlignment="Center" Foreground="{DynamicResource Muted}" Margin="0,0,4,0"/>
                     <TextBox Style="{StaticResource Field}" Width="64" Text="{Binding RequestDelayMs}"/>
+                </WrapPanel>
+
+                <Separator Margin="0,10" Background="{DynamicResource Border}"/>
+
+                <!-- XTC 出力設定 -->
+                <WrapPanel IsEnabled="{Binding IsNotBusy}">
+                    <CheckBox Content="XTCも生成" IsChecked="{Binding GenerateXtc}" Margin="0,0,16,0"
+                              VerticalAlignment="Center"
+                              ToolTip="EPUB生成後に、Xteink実機で読める1bitモノクロのXTCを書き出します。"/>
+
+                    <TextBlock Text="端末:" VerticalAlignment="Center"
+                               Foreground="{DynamicResource Muted}" Margin="0,0,4,0"/>
+                    <ComboBox Width="180" Margin="0,0,8,0" VerticalAlignment="Center"
+                              ItemsSource="{Binding XtcDevices}"
+                              SelectedItem="{Binding XtcDevice}"
+                              ToolTip="出力解像度が決まります。X3: 528×792 / X4 Pro: 480×800">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Converter={x:Static local:DeviceNameConverter.Instance}}"/>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <TextBlock Text="{Binding XtcResolutionText}" VerticalAlignment="Center"
+                               Foreground="{DynamicResource Muted}" FontSize="11" Margin="0,0,20,0"/>
+
+                    <TextBlock Text="フォント:" VerticalAlignment="Center"
+                               Foreground="{DynamicResource Muted}" Margin="0,0,4,0"/>
+                    <ComboBox Width="200" Margin="0,0,8,0" VerticalAlignment="Center"
+                              ItemsSource="{Binding XtcFonts}"
+                              SelectedItem="{Binding XtcFont}"
+                              DisplayMemberPath="DisplayName"
+                              ToolTip="縦書き本文の描画に使うフォント。未選択なら自動で明朝系を選びます。"/>
+                    <Button Style="{StaticResource Ghost}" Content="フォント参照" Padding="8,3" FontSize="11" Margin="0,0,20,0"
+                            Command="{Binding ChooseXtcFontCommand}"
+                            ToolTip="一覧にないフォントファイル（.ttf / .ttc / .otf）を指定します。"/>
+
+                    <!-- ラベルと入力欄が離れて折り返さないよう、グループ単位でまとめる -->
+                    <StackPanel Orientation="Horizontal" Margin="0,0,20,0" VerticalAlignment="Center">
+                        <TextBlock Text="文字サイズ(px):" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource Muted}" Margin="0,0,4,0"/>
+                        <TextBox Style="{StaticResource Field}" Width="52" FontSize="12" Padding="6,3"
+                                 VerticalAlignment="Center"
+                                 Text="{Binding XtcFontSize, UpdateSourceTrigger=LostFocus}"
+                                 ToolTip="本文の文字サイズ（ピクセル）。8〜200。既定 36。&#10;行送りとルビの大きさはこの値から自動で決まります。"/>
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal" Margin="0,0,20,0" VerticalAlignment="Center">
+                        <TextBlock Text="線の太さ:" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource Muted}" Margin="0,0,4,0"/>
+                        <TextBox Style="{StaticResource Field}" Width="52" FontSize="12" Padding="6,3"
+                                 VerticalAlignment="Center"
+                                 Text="{Binding XtcTextThreshold, UpdateSourceTrigger=LostFocus}"
+                                 ToolTip="2値化のしきい値。大きいほど線が太くなります。128〜250、既定 200。&#10;細いフォントで文字が薄いときに上げてください。"/>
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal" Margin="0,0,20,0" VerticalAlignment="Center">
+                        <TextBlock Text="余白(px)" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource Muted}" Margin="0,0,8,0"/>
+                        <TextBlock Text="上" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource Muted}" Margin="0,0,3,0"/>
+                        <TextBox Style="{StaticResource Field}" Width="42" FontSize="12" Padding="5,3"
+                                 VerticalAlignment="Center" Margin="0,0,8,0"
+                                 Text="{Binding XtcPaddingTop, UpdateSourceTrigger=LostFocus}"
+                                 ToolTip="上の余白（ピクセル）。既定の余白に加算されます。"/>
+                        <TextBlock Text="下" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource Muted}" Margin="0,0,3,0"/>
+                        <TextBox Style="{StaticResource Field}" Width="42" FontSize="12" Padding="5,3"
+                                 VerticalAlignment="Center" Margin="0,0,8,0"
+                                 Text="{Binding XtcPaddingBottom, UpdateSourceTrigger=LostFocus}"
+                                 ToolTip="下の余白（ピクセル）。既定の余白に加算されます。"/>
+                        <TextBlock Text="左" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource Muted}" Margin="0,0,3,0"/>
+                        <TextBox Style="{StaticResource Field}" Width="42" FontSize="12" Padding="5,3"
+                                 VerticalAlignment="Center" Margin="0,0,8,0"
+                                 Text="{Binding XtcPaddingLeft, UpdateSourceTrigger=LostFocus}"
+                                 ToolTip="左の余白（ピクセル）。既定の余白に加算されます。"/>
+                        <TextBlock Text="右" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource Muted}" Margin="0,0,3,0"/>
+                        <TextBox Style="{StaticResource Field}" Width="42" FontSize="12" Padding="5,3"
+                                 VerticalAlignment="Center"
+                                 Text="{Binding XtcPaddingRight, UpdateSourceTrigger=LostFocus}"
+                                 ToolTip="右の余白（ピクセル）。既定の余白に加算されます。"/>
+                    </StackPanel>
+
+                    <Button Style="{StaticResource Ghost}" Content="📖 XTCをまとめて変換"
+                            Command="{Binding ConvertAllXtcCommand}"
+                            ToolTip="ライブラリ内のすべてのEPUBをXTCへ変換します。"/>
                 </WrapPanel>
 
                 <Separator Margin="0,10" Background="{DynamicResource Border}"/>
@@ -232,8 +321,13 @@
                                             <Button Style="{StaticResource Accent}" Content="更新" Margin="4" Padding="11,5" FontSize="12"
                                                     Command="{Binding DataContext.UpdateItemCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                                     CommandParameter="{Binding}"/>
-                                            <Button Style="{StaticResource Chip}" Content="表紙" Margin="4"
+                                            <Button Style="{StaticResource Chip}" Content="{Binding CoverButtonLabel}" Margin="4"
+                                                    ToolTip="表紙を選び直します。● は取得済みの候補件数です。"
                                                     Command="{Binding DataContext.ChangeCoverCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                    CommandParameter="{Binding}"/>
+                                            <Button Style="{StaticResource Chip}" Content="XTC" Margin="4"
+                                                    ToolTip="このEPUBをXTC（Xteink実機用）へ変換します。"
+                                                    Command="{Binding DataContext.ConvertXtcCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                                     CommandParameter="{Binding}"/>
                                             <Button Style="{StaticResource Chip}" Content="開く" Margin="4"
                                                     Command="{Binding DataContext.OpenEpubCommand, RelativeSource={RelativeSource AncestorType=Window}}"
@@ -253,7 +347,7 @@
                 </ScrollViewer>
 
                 <!-- 空状態 -->
-                <TextBlock Grid.Row="1" Text="まだ作品がありません。上の入力欄にURLを貼り付けて「ライブラリに追加」してください。"
+                <TextBlock Grid.Row="1" Text="まだ作品がありません。上の入力欄にURL、または作品タイトルを入力して「ライブラリに追加」してください。"
                            Foreground="{DynamicResource Muted}" HorizontalAlignment="Center" VerticalAlignment="Center"
                            Visibility="{Binding Items.Count, Converter={x:Static local:CountToVisibility.Instance}}"/>
             </Grid>
