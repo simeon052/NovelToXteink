@@ -565,8 +565,29 @@ public sealed class MainViewModel : ViewModelBase
                         }
                         else
                         {
-                            // 新規追加
-                            _service.Entries.Add(imported);
+                            // 新規追加: 移行元環境の絶対パスや状態を持ち込まない
+                            _service.Entries.Add(new LibraryEntry
+                            {
+                                Url = imported.Url,
+                                Site = imported.Site,
+                                WorkId = imported.WorkId,
+                                Title = imported.Title,
+                                Author = imported.Author,
+                                Description = imported.Description,
+                                EpisodeCount = imported.EpisodeCount,
+                                LastEpisodeTitle = imported.LastEpisodeTitle,
+                                EpubPath = "",
+                                EpubParts = [],
+                                NameTemplate = string.IsNullOrWhiteSpace(imported.NameTemplate) ? NameFormatter.DefaultTemplate : imported.NameTemplate,
+                                IsCompleted = imported.IsCompleted,
+                                SiteLastUpdated = imported.SiteLastUpdated,
+                                CoverImagePath = null,
+                                Options = imported.Options ?? new EpubOptions(),
+                                AddedAt = DateTimeOffset.Now,
+                                LastCheckedAt = null,
+                                LastUpdatedAt = null,
+                                Status = UpdateStatus.Unknown,
+                            });
                         }
                     }
                     _service.Persist();
@@ -590,6 +611,8 @@ public sealed class MainViewModel : ViewModelBase
                         OnChanged(nameof(EnableProofreading));
                         OnChanged(nameof(EpisodesPerFile));
                         OnChanged(nameof(RequestDelayMs));
+                        OnChanged(nameof(IsDarkMode));
+                        OnChanged(nameof(DarkModeToggleLabel));
                     }
 
                     ReloadItems();

@@ -1,5 +1,6 @@
 using System.IO;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace NovelToEink.Core;
 
@@ -254,10 +255,11 @@ public sealed class LibraryService
     /// <summary>ライブラリと設定をJSONファイルへエクスポートする。</summary>
     public void ExportLibrary(string filePath)
     {
+        var appVersion = typeof(LibraryService).Assembly.GetName().Version?.ToString() ?? "unknown";
         var exportData = new
         {
             ExportedAt = DateTimeOffset.Now,
-            AppVersion = "1.0",
+            AppVersion = appVersion,
             Library = Entries,
             Settings = new
             {
@@ -272,7 +274,12 @@ public sealed class LibraryService
             }
         };
 
-        var options = new JsonSerializerOptions { WriteIndented = true };
+        var options = new JsonSerializerOptions
+        {
+            WriteIndented = true,
+            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+            Converters = { new JsonStringEnumConverter() },
+        };
         var json = JsonSerializer.Serialize(exportData, options);
         File.WriteAllText(filePath, json);
     }
@@ -284,15 +291,22 @@ public sealed class LibraryService
         using var doc = JsonDocument.Parse(json);
         var root = doc.RootElement;
 
-        var libraryJson = root.GetProperty("Library").GetRawText();
-        var options = new JsonSerializerOptions { Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() } };
+        if (root.ValueKind != JsonValueKind.Object)
+            throw new InvalidDataException("JSONのルート要素がオブジェクトではありません。");
+
+        if (!root.TryGetProperty("Library", out var libraryElement) || libraryElement.ValueKind != JsonValueKind.Array)
+            throw new InvalidDataException("Library 配列が見つからないか、形式が不正です。");
+        if (!root.TryGetProperty("Settings", out var settingsObj) || settingsObj.ValueKind != JsonValueKind.Object)
+            throw new InvalidDataException("Settings オブジェクトが見つからないか、形式が不正です。");
+
+        var libraryJson = libraryElement.GetRawText();
+        var options = new JsonSerializerOptions { Converters = { new JsonStringEnumConverter() } };
         var library = JsonSerializer.Deserialize<List<LibraryEntry>>(libraryJson, options) ?? [];
 
-        var settingsObj = root.GetProperty("Settings");
         var settings = new Dictionary<string, object>();
         foreach (var prop in settingsObj.EnumerateObject())
         {
-            settings[prop.Name] = prop.Value.GetRawText();
+            settings[prop.Name] = prop.Value.ToString();
         }
 
         return (library, settings);
