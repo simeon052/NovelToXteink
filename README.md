@@ -19,6 +19,16 @@ Web小説をダウンロードし、**Xteink X3** のような非力な E-Ink �
 dotnet run --project src/NovelToEink.App
 ```
 
+配布用に publish する場合:
+
+```bash
+dotnet publish src/NovelToEink.App/NovelToEink.App.csproj -c Release
+```
+
+環境によって出力先が次のいずれかになる:
+- `src\NovelToEink.App\bin\Release\net10.0-windows\publish\`
+- `src\NovelToEink.App\bin\Release\net10.0-windows\win-x64\publish\`
+
 ダウンロードした作品を**ライブラリ**として管理し、更新があれば EPUB を作り直せる。
 
 1. **保存先フォルダ**を指定（ここが「ライブラリ」。`library.json`・各EPUB・表紙画像がここに置かれる）。
