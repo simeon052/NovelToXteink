@@ -37,6 +37,38 @@ dotnet run --project src/NovelToEink.App
 変換オプション（縦書き・挿絵・グレースケール・ルビ・**分割話数**・リクエスト間隔）と保存先は設定として保存される
 （`%AppData%\NovelToEink\settings.json`）。
 
+### ライブラリのエクスポート・インポート
+
+**📤 エクスポート** ボタンでライブラリ全体と設定を JSON ファイルに保存できます。
+別の PC や環境へのバックアップ、ライブラリの複製に使用します。
+
+**📥 インポート** ボタンでエクスポートした JSON ファイルを読み込みます。
+- 既存作品は更新されます。
+- 新規作品は追加されます。
+- インポート後、設定も反映させるか確認できます。
+
+エクスポート JSON ファイルの構成:
+```json
+{
+  "ExportedAt": "2025-09-12T10:30:00+09:00",
+  "AppVersion": "1.0",
+  "Library": [
+    { "Url": "...", "Title": "...", ... },
+    ...
+  ],
+  "Settings": {
+    "Vertical": true,
+    "GrayscaleImages": true,
+    "IncludeInlineImages": true,
+    "KeepRuby": true,
+    "EnableProofreading": true,
+    "EpisodesPerFile": 200,
+    "RequestDelayMs": 1500,
+    "IsDarkMode": false
+  }
+}
+```
+
 ### EPUB分割
 
 長編は **指定話数ごとに分割**できる（既定 **200話/ファイル**）。分割すると各EPUBのタイトルに `（1/5）` のような
