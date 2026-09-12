@@ -22,6 +22,16 @@ Web小説をダウンロードし、**Xteink X3 / X4 Pro** のような非力な
 dotnet run --project src/NovelToEink.App
 ```
 
+配布用に publish する場合:
+
+```bash
+dotnet publish src/NovelToEink.App/NovelToEink.App.csproj -c Release
+```
+
+環境によって出力先が次のいずれかになる:
+- `src\NovelToEink.App\bin\Release\net10.0-windows\publish\`
+- `src\NovelToEink.App\bin\Release\net10.0-windows\win-x64\publish\`
+
 ダウンロードした作品を**ライブラリ**として管理し、更新があれば EPUB を作り直せる。
 
 1. **保存先フォルダ**を指定（ここが「ライブラリ」。`library.json`・各EPUB・表紙画像がここに置かれる）。
@@ -63,6 +73,38 @@ APIの返却順は関連度順とは限らないため多め（20件）に取得
 4. あとから「表紙」ボタンを押すと、**キャッシュ済みの候補が検索なしで即座に並ぶ**
 
 OFFにすると従来どおり、作品ごとに表紙選択ダイアログが開く。
+
+### ライブラリのエクスポート・インポート
+
+**📤 エクスポート** ボタンでライブラリ全体と設定を JSON ファイルに保存できます。
+別の PC や環境へのバックアップ、ライブラリの複製に使用します。
+
+**📥 インポート** ボタンでエクスポートした JSON ファイルを読み込みます。
+- 既存作品は更新されます。
+- 新規作品は追加されます。
+- インポート後、設定も反映させるか確認できます。
+
+エクスポート JSON ファイルの構成:
+```json
+{
+  "ExportedAt": "2025-09-12T10:30:00+09:00",
+  "AppVersion": "1.0",
+  "Library": [
+    { "Url": "...", "Title": "...", ... },
+    ...
+  ],
+  "Settings": {
+    "Vertical": true,
+    "GrayscaleImages": true,
+    "IncludeInlineImages": true,
+    "KeepRuby": true,
+    "EnableProofreading": true,
+    "EpisodesPerFile": 200,
+    "RequestDelayMs": 1500,
+    "IsDarkMode": false
+  }
+}
+```
 
 ### EPUB分割
 

@@ -44,6 +44,8 @@ public sealed class MainViewModel : ViewModelBase
         CopyTitleCommand = new RelayCommand<LibraryItemVm>(CopyTitle);
         OpenUrlCommand = new RelayCommand<LibraryItemVm>(OpenUrl);
         ToggleDarkModeCommand = new RelayCommand(ToggleDarkMode);
+        ExportLibraryCommand = new AsyncRelayCommand(ExportLibraryAsync, () => !IsBusy);
+        ImportLibraryCommand = new AsyncRelayCommand(ImportLibraryAsync, () => !IsBusy);
         ConvertXtcCommand = new AsyncRelayCommand<LibraryItemVm>(ConvertXtcAsync, _ => !IsBusy);
         ConvertAllXtcCommand = new AsyncRelayCommand(ConvertAllXtcAsync, () => !IsBusy && Items.Count > 0);
         ChooseXtcFontCommand = new RelayCommand(ChooseXtcFont, () => !IsBusy);
@@ -315,6 +317,8 @@ public sealed class MainViewModel : ViewModelBase
     public RelayCommand<LibraryItemVm> CopyTitleCommand { get; }
     public RelayCommand<LibraryItemVm> OpenUrlCommand { get; }
     public RelayCommand ToggleDarkModeCommand { get; }
+    public AsyncRelayCommand ExportLibraryCommand { get; }
+    public AsyncRelayCommand ImportLibraryCommand { get; }
     public AsyncRelayCommand<LibraryItemVm> ConvertXtcCommand { get; }
     public AsyncRelayCommand ConvertAllXtcCommand { get; }
     public RelayCommand ChooseXtcFontCommand { get; }
@@ -884,5 +888,144 @@ public sealed class MainViewModel : ViewModelBase
         }
 
         return results.Distinct().ToList();
+    }
+
+    private async Task ExportLibraryAsync()
+    {
+        var dialog = new SaveFileDialog
+        {
+            Title = "ライブラリをエクスポート",
+            Filter = "JSON ファイル (*.json)|*.json|すべてのファイル (*.*)|*.*",
+            DefaultExt = ".json",
+            FileName = $"library_export_{DateTime.Now:yyyyMMdd_HHmmss}.json"
+        };
+
+        if (dialog.ShowDialog() == true)
+        {
+            try
+            {
+                IsBusy = true;
+                StatusText = "ライブラリをエクスポート中...";
+                await Task.Run(() => _service.ExportLibrary(dialog.FileName));
+                StatusText = $"✓ ライブラリをエクスポートしました: {Path.GetFileName(dialog.FileName)}";
+            }
+            catch (Exception ex)
+            {
+                StatusText = $"✗ エクスポート失敗: {ex.Message}";
+            }
+            finally
+            {
+                IsBusy = false;
+            }
+        }
+    }
+
+    private async Task ImportLibraryAsync()
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = "ライブラリをインポート",
+            Filter = "JSON ファイル (*.json)|*.json|すべてのファイル (*.*)|*.*",
+            DefaultExt = ".json"
+        };
+
+        if (dialog.ShowDialog() == true)
+        {
+            try
+            {
+                IsBusy = true;
+                StatusText = "ライブラリをインポート中...";
+
+                var (importedLibrary, importedSettings) = await Task.Run(() => _service.ImportLibrary(dialog.FileName));
+
+                var result = MessageBox.Show(
+                    $"インポートする項目: {importedLibrary.Count} 作品\n\n" +
+                    "現在のライブラリに追加しますか？\n" +
+                    "（既存の作品は更新されます）",
+                    "ライブラリインポート確認",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Question);
+
+                if (result == MessageBoxResult.Yes)
+                {
+                    // インポートしたエントリを現在のライブラリにマージ
+                    foreach (var imported in importedLibrary)
+                    {
+                        var existing = _service.Entries.FirstOrDefault(e => e.Url == imported.Url);
+                        if (existing != null)
+                        {
+                            // 既存エントリを更新
+                            existing.Title = imported.Title;
+                            existing.Author = imported.Author;
+                            existing.EpisodeCount = imported.EpisodeCount;
+                            existing.IsCompleted = imported.IsCompleted;
+                            existing.SiteLastUpdated = imported.SiteLastUpdated;
+                            existing.Status = UpdateStatus.Unknown;
+                        }
+                        else
+                        {
+                            // 新規追加: 移行元環境の絶対パスや状態を持ち込まない
+                            _service.Entries.Add(new LibraryEntry
+                            {
+                                Url = imported.Url,
+                                Site = imported.Site,
+                                WorkId = imported.WorkId,
+                                Title = imported.Title,
+                                Author = imported.Author,
+                                Description = imported.Description,
+                                EpisodeCount = imported.EpisodeCount,
+                                LastEpisodeTitle = imported.LastEpisodeTitle,
+                                EpubPath = "",
+                                EpubParts = [],
+                                NameTemplate = string.IsNullOrWhiteSpace(imported.NameTemplate) ? NameFormatter.DefaultTemplate : imported.NameTemplate,
+                                IsCompleted = imported.IsCompleted,
+                                SiteLastUpdated = imported.SiteLastUpdated,
+                                CoverImagePath = null,
+                                Options = imported.Options ?? new EpubOptions(),
+                                AddedAt = DateTimeOffset.Now,
+                                LastCheckedAt = null,
+                                LastUpdatedAt = null,
+                                Status = UpdateStatus.Unknown,
+                            });
+                        }
+                    }
+                    _service.Persist();
+
+                    // 設定をインポート（確認ダイアログ）
+                    var applySettings = MessageBox.Show(
+                        "設定もインポートしますか？",
+                        "設定インポート確認",
+                        MessageBoxButton.YesNo,
+                        MessageBoxImage.Question);
+
+                    if (applySettings == MessageBoxResult.Yes)
+                    {
+                        LibraryService.ApplyImportedSettings(_settings, importedSettings);
+                        _settings.Save();
+                        ApplyTheme(_settings.IsDarkMode);
+                        OnChanged(nameof(Vertical));
+                        OnChanged(nameof(GrayscaleImages));
+                        OnChanged(nameof(IncludeInlineImages));
+                        OnChanged(nameof(KeepRuby));
+                        OnChanged(nameof(EnableProofreading));
+                        OnChanged(nameof(EpisodesPerFile));
+                        OnChanged(nameof(RequestDelayMs));
+                        OnChanged(nameof(IsDarkMode));
+                        OnChanged(nameof(DarkModeToggleLabel));
+                    }
+
+                    ReloadItems();
+                    StatusText = $"✓ ライブラリをインポートしました ({importedLibrary.Count} 作品)";
+                }
+            }
+            catch (Exception ex)
+            {
+                StatusText = $"✗ インポート失敗: {ex.Message}";
+            }
+            finally
+            {
+                IsBusy = false;
+            }
+        }
     }
 }
