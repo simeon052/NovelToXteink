@@ -25,6 +25,7 @@ public sealed class MainViewModel : ViewModelBase
         _settings = AppSettings.Load();
         _service = new LibraryService(_settings);
         ApplyTheme(_settings.IsDarkMode);
+        Items.CollectionChanged += (_, _) => OnChanged(nameof(PickPendingCoversLabel));
         ReloadItems();
 
         AddCommand = new AsyncRelayCommand(AddAsync, () => !IsBusy && HasInputs);
@@ -36,6 +37,7 @@ public sealed class MainViewModel : ViewModelBase
         CheckItemCommand = new AsyncRelayCommand<LibraryItemVm>(CheckItemAsync, _ => !IsBusy);
         UpdateItemCommand = new AsyncRelayCommand<LibraryItemVm>(UpdateItemAsync, _ => !IsBusy);
         ChangeCoverCommand = new AsyncRelayCommand<LibraryItemVm>(ChangeCoverAsync, _ => !IsBusy);
+        PickPendingCoversCommand = new AsyncRelayCommand(PickPendingCoversAsync, () => !IsBusy && PendingCoverCount > 0);
         OpenEpubCommand = new RelayCommand<LibraryItemVm>(OpenEpub);
         OpenFolderCommand = new RelayCommand<LibraryItemVm>(OpenFolder);
         RemoveCommand = new RelayCommand<LibraryItemVm>(Remove, _ => !IsBusy);
@@ -309,6 +311,12 @@ public sealed class MainViewModel : ViewModelBase
     public AsyncRelayCommand<LibraryItemVm> CheckItemCommand { get; }
     public AsyncRelayCommand<LibraryItemVm> UpdateItemCommand { get; }
     public AsyncRelayCommand<LibraryItemVm> ChangeCoverCommand { get; }
+    public AsyncRelayCommand PickPendingCoversCommand { get; }
+
+    private int PendingCoverCount => Items.Count(i => i.Entry.CoverPending);
+    public string PickPendingCoversLabel => PendingCoverCount > 0
+        ? $"🖼 表紙をまとめて選ぶ ({PendingCoverCount})"
+        : "🖼 表紙をまとめて選ぶ";
     public RelayCommand<LibraryItemVm> OpenEpubCommand { get; }
     public RelayCommand<LibraryItemVm> OpenFolderCommand { get; }
     public RelayCommand<LibraryItemVm> RemoveCommand { get; }
@@ -361,7 +369,9 @@ public sealed class MainViewModel : ViewModelBase
                     if (cover.Cancelled) { skipped++; continue; }
 
                     StatusText = "EPUBを生成中…";
-                    var entry = await Task.Run(() => _service.BuildAndRegister(novel, cover.Image, Options, buildProgress));
+                    var options = Options;
+                    var entry = await Task.Run(() =>
+                        _service.BuildAndRegister(novel, cover.Image, options, buildProgress, coverPending: cover.IsProvisional));
                     UpsertItem(entry);
                     added++;
 
@@ -374,10 +384,11 @@ public sealed class MainViewModel : ViewModelBase
 
             UrlsText = "";
             StatusText = $"追加 {added} 件" + (skipped > 0 ? $" / スキップ {skipped}" : "")
-                         + (failed > 0 ? $" / 失敗 {failed}（{lastError}）" : "") + "。";
+                         + (failed > 0 ? $" / 失敗 {failed}（{lastError}）" : "") + "。"
+                         + (PendingCoverCount > 0 ? "表紙は「表紙をまとめて選ぶ」で選べます。" : "");
         }
         catch (OperationCanceledException) { StatusText = $"中断しました（追加 {added} 件）。"; }
-        finally { EndBusy(); }
+        finally { EndBusy(); OnChanged(nameof(PickPendingCoversLabel)); }
     }
 
     /// <summary>入力がURLならそのまま、タイトルなら検索して目次URLに解決する。</summary>
@@ -539,13 +550,56 @@ public sealed class MainViewModel : ViewModelBase
         if (item == null) return;
         IsBusy = true;
         _cts = new CancellationTokenSource();
+        try
+        {
+            StatusText = "表紙変更のため再取得中…";
+            var picked = await ChooseCoverAsync(item, _cts.Token);
+            StatusText = picked ? $"「{item.Title}」の表紙を変更しました。" : "表紙変更をキャンセルしました。";
+        }
+        catch (OperationCanceledException) { StatusText = "中断しました。"; }
+        catch (Exception ex) { StatusText = "表紙変更失敗：" + ex.Message; }
+        finally { EndBusy(); OnChanged(nameof(PickPendingCoversLabel)); }
+    }
+
+    /// <summary>表紙未選択の作品を順に表紙選択する。ダイアログのキャンセルはその作品だけ飛ばす。</summary>
+    private async Task PickPendingCoversAsync()
+    {
+        var pending = Items.Where(i => i.Entry.CoverPending).ToList();
+        if (pending.Count == 0) return;
+        IsBusy = true;
+        _cts = new CancellationTokenSource();
+        int picked = 0, skipped = 0, failed = 0;
+        string? lastError = null;
+        try
+        {
+            for (var i = 0; i < pending.Count; i++)
+            {
+                _cts.Token.ThrowIfCancellationRequested();
+                StatusText = $"({i + 1}/{pending.Count}) 「{pending[i].Title}」の表紙を選択中…";
+                try
+                {
+                    if (await ChooseCoverAsync(pending[i], _cts.Token)) picked++;
+                    else skipped++;
+                }
+                catch (OperationCanceledException) { throw; }
+                catch (Exception ex) { failed++; lastError = ex.Message; }
+            }
+            StatusText = $"表紙を選択 {picked} 件" + (skipped > 0 ? $" / スキップ {skipped}" : "")
+                         + (failed > 0 ? $" / 失敗 {failed}（{lastError}）" : "") + "。";
+        }
+        catch (OperationCanceledException) { StatusText = $"中断しました（表紙を選択 {picked} 件）。"; }
+        finally { EndBusy(); OnChanged(nameof(PickPendingCoversLabel)); }
+    }
+
+    /// <summary>作品を再取得（キャッシュ利用）して表紙を選ばせ、EPUB を再生成する。キャンセル時は false。</summary>
+    private async Task<bool> ChooseCoverAsync(LibraryItemVm item, CancellationToken ct)
+    {
         var dlProgress = MakeDlProgress();
         var buildProgress = new Progress<string>(m => StatusText = "[EPUB] " + m);
         item.IsBusy = true; item.BusyText = "再取得中…";
         try
         {
-            StatusText = "表紙変更のため再取得中…";
-            var novel = await _service.DownloadAsync(item.Entry.Url, item.Entry.Options, dlProgress, _cts.Token);
+            var novel = await _service.DownloadAsync(item.Entry.Url, item.Entry.Options, dlProgress, ct);
             item.IsBusy = false;
 
             // 追加時に裏で集めた候補があれば、検索を待たずにそのまま見せる。
@@ -556,17 +610,14 @@ public sealed class MainViewModel : ViewModelBase
             {
                 Owner = Application.Current.MainWindow,
             };
-            if (dlg.ShowDialog() != true) { StatusText = "表紙変更をキャンセルしました。"; return; }
+            if (dlg.ShowDialog() != true) return false;
             var cover = dlg.Result?.Image;
-            StatusText = "EPUBを再生成中…";
-            var entry = await Task.Run(() => _service.BuildAndRegister(novel, cover, item.Entry.Options, buildProgress));
-            item.Refresh();
+            item.IsBusy = true; item.BusyText = "再生成中…";
+            await Task.Run(() => _service.BuildAndRegister(novel, cover, item.Entry.Options, buildProgress));
             item.SetCoverCandidateCount(0);
-            StatusText = $"「{entry.Title}」の表紙を変更しました。";
+            return true;
         }
-        catch (OperationCanceledException) { StatusText = "中断しました。"; }
-        catch (Exception ex) { StatusText = "表紙変更失敗：" + ex.Message; }
-        finally { item.IsBusy = false; item.Refresh(); EndBusy(); }
+        finally { item.IsBusy = false; item.Refresh(); }
     }
 
     /// <summary>一覧にないフォントファイルをダイアログで選ぶ。</summary>

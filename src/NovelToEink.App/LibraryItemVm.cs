@@ -33,6 +33,7 @@ public sealed class LibraryItemVm : ViewModelBase
 
     public bool IsCompleted => Entry.IsCompleted;
     public Visibility CompletedVisibility => Entry.IsCompleted ? Visibility.Visible : Visibility.Collapsed;
+    public Visibility CoverPendingVisibility => Entry.CoverPending ? Visibility.Visible : Visibility.Collapsed;
 
     public string SiteUpdatedText => Entry.SiteLastUpdated is { } d ? $"サイト最終更新: {d:yyyy/MM/dd}" : "";
 
@@ -103,6 +104,7 @@ public sealed class LibraryItemVm : ViewModelBase
         OnChanged(nameof(PartsText));
         OnChanged(nameof(IsCompleted));
         OnChanged(nameof(CompletedVisibility));
+        OnChanged(nameof(CoverPendingVisibility));
         OnChanged(nameof(SiteUpdatedText));
         OnChanged(nameof(LastUpdatedText));
         OnChanged(nameof(LastCheckedText));

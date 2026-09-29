@@ -47,6 +47,9 @@ public sealed class LibraryEntry
     /// <summary>表紙サイドカー画像の絶対パス（表紙なしなら null）。</summary>
     public string? CoverImagePath { get; set; }
 
+    /// <summary>暫定表紙（自動選択）のままで、まだ表紙を選んでいないか。</summary>
+    public bool CoverPending { get; set; }
+
     /// <summary>このエントリの生成に使ったEPUBオプション（更新時に再利用）。</summary>
     public EpubOptions Options { get; set; } = new();
 

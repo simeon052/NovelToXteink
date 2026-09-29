@@ -47,8 +47,10 @@ public sealed class LibraryService
     }
 
     /// <summary>ダウンロード済みデータと選択表紙からEPUB（必要なら分割）を生成し、ライブラリへ登録/更新する。</summary>
+    /// <param name="coverPending">表紙が暫定（後で選び直す前提）なら true。</param>
     public LibraryEntry BuildAndRegister(
-        NovelDownload novel, ScrapedImage? cover, EpubOptions epubOptions, IProgress<string>? progress)
+        NovelDownload novel, ScrapedImage? cover, EpubOptions epubOptions, IProgress<string>? progress,
+        bool coverPending = false)
     {
         var meta = novel.Metadata;
         var existing = Entries.FirstOrDefault(e => e.Url == meta.Url || SameWork(e, meta));
@@ -90,6 +92,7 @@ public sealed class LibraryService
         entry.EpubParts = parts.Select(p => p.OutputPath).ToList();
         entry.EpubPath = entry.EpubParts.FirstOrDefault() ?? "";
         entry.CoverImagePath = coverPath;
+        entry.CoverPending = coverPending;
         entry.Options = epubOptions;
         entry.LastUpdatedAt = DateTimeOffset.Now;
         entry.LastCheckedAt = DateTimeOffset.Now;

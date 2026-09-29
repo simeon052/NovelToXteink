@@ -186,6 +186,9 @@
                     <Button Grid.Column="2" Style="{StaticResource Ghost}" Content="フォルダ変更"
                             Command="{Binding ChooseFolderCommand}" Margin="8,0,0,0"/>
                     <StackPanel Grid.Column="3" Orientation="Horizontal" Margin="16,0,0,0">
+                        <Button Style="{StaticResource Ghost}" Content="{Binding PickPendingCoversLabel}"
+                                Command="{Binding PickPendingCoversCommand}" Margin="0,0,8,0"
+                                ToolTip="表紙未選択の作品について、表紙を順に選びます。"/>
                         <Button Style="{StaticResource Ghost}" Content="🔄 更新チェック"
                                 Command="{Binding CheckAllCommand}"/>
                         <Button Style="{StaticResource Accent}" Content="⬆ 更新をまとめて適用" Margin="8,0,0,0"
@@ -258,6 +261,11 @@
                                                 <Border Visibility="{Binding CompletedVisibility}" Background="#16A34A"
                                                         CornerRadius="4" Padding="6,1" Margin="8,0,0,0" VerticalAlignment="Center">
                                                     <TextBlock Text="完結" Foreground="White" FontSize="11" FontWeight="SemiBold"/>
+                                                </Border>
+                                                <Border Visibility="{Binding CoverPendingVisibility}" Background="#EA580C"
+                                                        CornerRadius="4" Padding="6,1" Margin="8,0,0,0" VerticalAlignment="Center"
+                                                        ToolTip="暫定の表紙が付いています。「表紙」または「表紙をまとめて選ぶ」で選び直せます。">
+                                                    <TextBlock Text="表紙未選択" Foreground="White" FontSize="11" FontWeight="SemiBold"/>
                                                 </Border>
                                                 <Button Style="{StaticResource Chip}" Content="📋" Padding="5,2" FontSize="12"
                                                         Margin="6,0,0,0" VerticalAlignment="Center"
