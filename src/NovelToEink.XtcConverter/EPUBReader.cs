@@ -11,8 +11,8 @@ namespace NovelToEink.XtcConverter
 {
     public class RubySegment
     {
-        public string Term { get; set; }
-        public string Reading { get; set; }
+        public string Term { get; set; } = string.Empty;
+        public string Reading { get; set; } = string.Empty;
     }
 
     public class TextBlock
@@ -54,9 +54,8 @@ namespace NovelToEink.XtcConverter
         {
             using var zip = ZipFile.OpenRead(epubPath);
 
-            string opfPath = FindRootFile(zip);
-            if (opfPath == null)
-                throw new InvalidDataException("META-INF/container.xml rootfile not found in EPUB");
+            string opfPath = FindRootFile(zip)
+                ?? throw new InvalidDataException("META-INF/container.xml rootfile not found in EPUB");
 
             var opf = ParsePackage(zip, opfPath);
 
@@ -95,7 +94,7 @@ namespace NovelToEink.XtcConverter
             return mediaType.ToLowerInvariant().Contains("xhtml");
         }
 
-        private static string FindRootFile(ZipArchive zip)
+        private static string? FindRootFile(ZipArchive zip)
         {
             var entry = zip.GetEntry("META-INF/container.xml")
                         ?? zip.Entries.FirstOrDefault(e => e.FullName.Equals("META-INF/container.xml", StringComparison.OrdinalIgnoreCase));
@@ -328,7 +327,7 @@ namespace NovelToEink.XtcConverter
                                              || c.Equals("r", StringComparison.OrdinalIgnoreCase));
         }
 
-        private static XtcImage ReadImage(ZipArchive zip, HtmlNode imgNode)
+        private static XtcImage? ReadImage(ZipArchive zip, HtmlNode imgNode)
         {
             var src = imgNode.GetAttributeValue("src", string.Empty);
             if (string.IsNullOrEmpty(src))
@@ -343,7 +342,7 @@ namespace NovelToEink.XtcConverter
             return new XtcImage { MediaType = GuessMediaType(src), Data = img, Name = System.IO.Path.GetFileName(src) };
         }
 
-        private static byte[] FindImageBytes(ZipArchive zip, string src)
+        private static byte[]? FindImageBytes(ZipArchive zip, string src)
         {
             if (src.StartsWith("data:", StringComparison.Ordinal))
                 return null;
@@ -427,8 +426,8 @@ namespace NovelToEink.XtcConverter
 
     internal class ManifestItem
     {
-        public string Id { get; set; }
-        public string Href { get; set; }
-        public string MediaType { get; set; }
+        public string Id { get; set; } = string.Empty;
+        public string Href { get; set; } = string.Empty;
+        public string MediaType { get; set; } = string.Empty;
     }
 }
