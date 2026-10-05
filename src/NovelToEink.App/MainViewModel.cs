@@ -9,6 +9,15 @@ using NovelToEink.Xtc;
 
 namespace NovelToEink.App;
 
+// XTC設定の値域定数
+internal static class XtcSettingRanges
+{
+    public const int FontSizeMin = 8;
+    public const int FontSizeMax = 200;
+    public const int TextThresholdMin = 128;
+    public const int TextThresholdMax = 250;
+}
+
 public sealed class MainViewModel : ViewModelBase
 {
     private readonly AppSettings _settings;
@@ -18,12 +27,29 @@ public sealed class MainViewModel : ViewModelBase
     private enum SortKey { Converted, SiteUpdated, Title }
     private SortKey _sortKey = SortKey.Converted;
 
+    // XTC 設定のローカルフィールド（ref が必要なので）
+    private int _xtcFontSize;
+    private int _xtcTextThreshold;
+    private int _xtcPaddingTop;
+    private int _xtcPaddingBottom;
+    private int _xtcPaddingLeft;
+    private int _xtcPaddingRight;
+
     public ObservableCollection<LibraryItemVm> Items { get; } = [];
 
     public MainViewModel()
     {
         _settings = AppSettings.Load();
         _service = new LibraryService(_settings);
+        
+        // XTC 設定をローカルフィールドに初期化
+        _xtcFontSize = _settings.XtcFontSize;
+        _xtcTextThreshold = _settings.XtcTextThreshold;
+        _xtcPaddingTop = _settings.XtcPaddingTop;
+        _xtcPaddingBottom = _settings.XtcPaddingBottom;
+        _xtcPaddingLeft = _settings.XtcPaddingLeft;
+        _xtcPaddingRight = _settings.XtcPaddingRight;
+        
         ApplyTheme(_settings.IsDarkMode);
         Items.CollectionChanged += (_, _) => OnChanged(nameof(PickPendingCoversLabel));
         ReloadItems();
@@ -66,56 +92,72 @@ public sealed class MainViewModel : ViewModelBase
 
     public string OutputFolder => _settings.OutputFolder;
 
+    // 設定バインディング — SettingsBinding ヘルパー使用
+    private bool _vertical;
     public bool Vertical
     {
-        get => _settings.Vertical;
-        set { if (_settings.Vertical != value) { _settings.Vertical = value; _settings.Save(); OnChanged(); } }
+        get => _vertical;
+        set => SettingsBinding.Bind(ref _vertical, value, _settings.Save, OnChanged);
     }
+
+    private bool _grayscaleImages;
     public bool GrayscaleImages
     {
-        get => _settings.GrayscaleImages;
-        set { if (_settings.GrayscaleImages != value) { _settings.GrayscaleImages = value; _settings.Save(); OnChanged(); } }
+        get => _grayscaleImages;
+        set => SettingsBinding.Bind(ref _grayscaleImages, value, _settings.Save, OnChanged);
     }
+
+    private bool _includeInlineImages;
     public bool IncludeInlineImages
     {
-        get => _settings.IncludeInlineImages;
-        set { if (_settings.IncludeInlineImages != value) { _settings.IncludeInlineImages = value; _settings.Save(); OnChanged(); } }
+        get => _includeInlineImages;
+        set => SettingsBinding.Bind(ref _includeInlineImages, value, _settings.Save, OnChanged);
     }
+
+    private bool _keepRuby;
     public bool KeepRuby
     {
-        get => _settings.KeepRuby;
-        set { if (_settings.KeepRuby != value) { _settings.KeepRuby = value; _settings.Save(); OnChanged(); } }
+        get => _keepRuby;
+        set => SettingsBinding.Bind(ref _keepRuby, value, _settings.Save, OnChanged);
     }
+
+    private int _requestDelayMs;
     public int RequestDelayMs
     {
-        get => _settings.RequestDelayMs;
-        set { if (_settings.RequestDelayMs != value) { _settings.RequestDelayMs = value; _settings.Save(); OnChanged(); } }
+        get => _requestDelayMs;
+        set => SettingsBinding.Bind(ref _requestDelayMs, value, _settings.Save, OnChanged);
     }
+
+    private int _episodesPerFile;
     public int EpisodesPerFile
     {
-        get => _settings.EpisodesPerFile;
-        set { if (_settings.EpisodesPerFile != value) { _settings.EpisodesPerFile = value; _settings.Save(); OnChanged(); } }
+        get => _episodesPerFile;
+        set => SettingsBinding.Bind(ref _episodesPerFile, value, _settings.Save, OnChanged);
     }
+
+    private bool _enableProofreading;
     public bool EnableProofreading
     {
-        get => _settings.EnableProofreading;
-        set { if (_settings.EnableProofreading != value) { _settings.EnableProofreading = value; _settings.Save(); OnChanged(); } }
+        get => _enableProofreading;
+        set => SettingsBinding.Bind(ref _enableProofreading, value, _settings.Save, OnChanged);
     }
 
     /// <summary>追加時に表紙選択で止まらず、暫定表紙で先へ進むか。</summary>
+    private bool _autoCover;
     public bool AutoCover
     {
-        get => _settings.AutoCover;
-        set { if (_settings.AutoCover != value) { _settings.AutoCover = value; _settings.Save(); OnChanged(); } }
+        get => _autoCover;
+        set => SettingsBinding.Bind(ref _autoCover, value, _settings.Save, OnChanged);
     }
 
     // ---- XTC 出力 ----
 
     /// <summary>EPUB 生成後に XTC も作るか。</summary>
+    private bool _generateXtc;
     public bool GenerateXtc
     {
-        get => _settings.GenerateXtc;
-        set { if (_settings.GenerateXtc != value) { _settings.GenerateXtc = value; _settings.Save(); OnChanged(); } }
+        get => _generateXtc;
+        set => SettingsBinding.Bind(ref _generateXtc, value, _settings.Save, OnChanged);
     }
 
     /// <summary>選択できる端末の一覧。</summary>
@@ -171,15 +213,8 @@ public sealed class MainViewModel : ViewModelBase
     /// <summary>本文の文字サイズ（px）。8〜200 に丸める。</summary>
     public int XtcFontSize
     {
-        get => _settings.XtcFontSize;
-        set
-        {
-            var v = Math.Clamp(value, 8, 200);
-            if (_settings.XtcFontSize == v) return;
-            _settings.XtcFontSize = v;
-            _settings.Save();
-            OnChanged();
-        }
+        get => _xtcFontSize;
+        set => SettingsBinding.BindClamped(ref _xtcFontSize, value, 8, 200, () => { _settings.XtcFontSize = _xtcFontSize; _settings.Save(); }, OnChanged);
     }
 
     /// <summary>
@@ -188,71 +223,36 @@ public sealed class MainViewModel : ViewModelBase
     /// </summary>
     public int XtcTextThreshold
     {
-        get => _settings.XtcTextThreshold;
-        set
-        {
-            var v = Math.Clamp(value, 128, 250);
-            if (_settings.XtcTextThreshold == v) return;
-            _settings.XtcTextThreshold = v;
-            _settings.Save();
-            OnChanged();
-        }
+        get => _xtcTextThreshold;
+        set => SettingsBinding.BindClamped(ref _xtcTextThreshold, value, 128, 250, () => { _settings.XtcTextThreshold = _xtcTextThreshold; _settings.Save(); }, OnChanged);
     }
 
     /// <summary>上余白（px）。</summary>
     public int XtcPaddingTop
     {
-        get => _settings.XtcPaddingTop;
-        set
-        {
-            var v = Math.Max(0, value);
-            if (_settings.XtcPaddingTop == v) return;
-            _settings.XtcPaddingTop = v;
-            _settings.Save();
-            OnChanged();
-        }
+        get => _xtcPaddingTop;
+        set => SettingsBinding.BindClampedMin(ref _xtcPaddingTop, value, 0, () => { _settings.XtcPaddingTop = _xtcPaddingTop; _settings.Save(); }, OnChanged);
     }
 
     /// <summary>下余白（px）。</summary>
     public int XtcPaddingBottom
     {
-        get => _settings.XtcPaddingBottom;
-        set
-        {
-            var v = Math.Max(0, value);
-            if (_settings.XtcPaddingBottom == v) return;
-            _settings.XtcPaddingBottom = v;
-            _settings.Save();
-            OnChanged();
-        }
+        get => _xtcPaddingBottom;
+        set => SettingsBinding.BindClampedMin(ref _xtcPaddingBottom, value, 0, () => { _settings.XtcPaddingBottom = _xtcPaddingBottom; _settings.Save(); }, OnChanged);
     }
 
     /// <summary>左余白（px）。</summary>
     public int XtcPaddingLeft
     {
-        get => _settings.XtcPaddingLeft;
-        set
-        {
-            var v = Math.Max(0, value);
-            if (_settings.XtcPaddingLeft == v) return;
-            _settings.XtcPaddingLeft = v;
-            _settings.Save();
-            OnChanged();
-        }
+        get => _xtcPaddingLeft;
+        set => SettingsBinding.BindClampedMin(ref _xtcPaddingLeft, value, 0, () => { _settings.XtcPaddingLeft = _xtcPaddingLeft; _settings.Save(); }, OnChanged);
     }
 
     /// <summary>右余白（px）。</summary>
     public int XtcPaddingRight
     {
-        get => _settings.XtcPaddingRight;
-        set
-        {
-            var v = Math.Max(0, value);
-            if (_settings.XtcPaddingRight == v) return;
-            _settings.XtcPaddingRight = v;
-            _settings.Save();
-            OnChanged();
-        }
+        get => _xtcPaddingRight;
+        set => SettingsBinding.BindClampedMin(ref _xtcPaddingRight, value, 0, () => { _settings.XtcPaddingRight = _xtcPaddingRight; _settings.Save(); }, OnChanged);
     }
 
     // ---- ダークモード ----
