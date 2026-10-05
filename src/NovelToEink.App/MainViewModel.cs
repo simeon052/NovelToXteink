@@ -9,15 +9,6 @@ using NovelToEink.Xtc;
 
 namespace NovelToEink.App;
 
-// XTC設定の値域定数
-internal static class XtcSettingRanges
-{
-    public const int FontSizeMin = 8;
-    public const int FontSizeMax = 200;
-    public const int TextThresholdMin = 128;
-    public const int TextThresholdMax = 250;
-}
-
 public sealed class MainViewModel : ViewModelBase
 {
     private readonly AppSettings _settings;
@@ -27,13 +18,8 @@ public sealed class MainViewModel : ViewModelBase
     private enum SortKey { Converted, SiteUpdated, Title }
     private SortKey _sortKey = SortKey.Converted;
 
-    // XTC 設定のローカルフィールド（ref が必要なので）
-    private int _xtcFontSize;
-    private int _xtcTextThreshold;
-    private int _xtcPaddingTop;
-    private int _xtcPaddingBottom;
-    private int _xtcPaddingLeft;
-    private int _xtcPaddingRight;
+    /// <summary>XTC 出力設定のサブビューモデル。</summary>
+    public XtcSettingsViewModel XtcSettings { get; }
 
     public ObservableCollection<LibraryItemVm> Items { get; } = [];
 
@@ -42,13 +28,8 @@ public sealed class MainViewModel : ViewModelBase
         _settings = AppSettings.Load();
         _service = new LibraryService(_settings);
         
-        // XTC 設定をローカルフィールドに初期化
-        _xtcFontSize = _settings.XtcFontSize;
-        _xtcTextThreshold = _settings.XtcTextThreshold;
-        _xtcPaddingTop = _settings.XtcPaddingTop;
-        _xtcPaddingBottom = _settings.XtcPaddingBottom;
-        _xtcPaddingLeft = _settings.XtcPaddingLeft;
-        _xtcPaddingRight = _settings.XtcPaddingRight;
+        // XTC 設定サブビューモデルを初期化
+        XtcSettings = new XtcSettingsViewModel(_settings, OnChanged);
         
         ApplyTheme(_settings.IsDarkMode);
         Items.CollectionChanged += (_, _) => OnChanged(nameof(PickPendingCoversLabel));
@@ -160,99 +141,49 @@ public sealed class MainViewModel : ViewModelBase
         set => SettingsBinding.Bind(ref _generateXtc, value, _settings.Save, OnChanged);
     }
 
-    /// <summary>選択できる端末の一覧。</summary>
-    public IReadOnlyList<XteinkDevice> XtcDevices { get; } = [XteinkDevice.X3, XteinkDevice.X4Pro];
-
-    /// <summary>XTC の出力対象端末。</summary>
+    /// <summary>XTC 設定のフォワーディングプロパティ。</summary>
+    public IReadOnlyList<XteinkDevice> XtcDevices => XtcSettings.XtcDevices;
     public XteinkDevice XtcDevice
     {
-        get => _settings.XtcDevice;
-        set
-        {
-            if (_settings.XtcDevice == value) return;
-            _settings.XtcDevice = value;
-            _settings.Save();
-            OnChanged();
-            OnChanged(nameof(XtcResolutionText));
-        }
+        get => XtcSettings.XtcDevice;
+        set => XtcSettings.XtcDevice = value;
     }
-
-    /// <summary>選択中の端末の解像度表示。</summary>
-    public string XtcResolutionText
-    {
-        get
-        {
-            var (w, h) = _settings.XtcDevice.GetResolution();
-            return $"{w} × {h} px";
-        }
-    }
-
-    // フォント探索はファイルシステムを走査するので一度だけ行う。
-    private readonly List<XtcFont> _fonts = [.. FontFinder.Enumerate()];
-
-    /// <summary>描画に使えるフォントの一覧（検出したもの + ユーザーが指定したもの）。</summary>
-    public IReadOnlyList<XtcFont> XtcFonts => _fonts;
-
-    /// <summary>XTC 描画に使うフォント。null なら自動選択。</summary>
+    public string XtcResolutionText => XtcSettings.XtcResolutionText;
+    public IReadOnlyList<XtcFont> XtcFonts => XtcSettings.XtcFonts;
     public XtcFont? XtcFont
     {
-        // 未設定のときは FontFinder が実際に選ぶフォントを見せる。
-        get => _fonts.FirstOrDefault(f =>
-                   string.Equals(f.FilePath, _settings.XtcFontFile, StringComparison.OrdinalIgnoreCase))
-               ?? _fonts.FirstOrDefault();
-        set
-        {
-            var path = value?.FilePath ?? "";
-            if (string.Equals(_settings.XtcFontFile, path, StringComparison.OrdinalIgnoreCase)) return;
-            _settings.XtcFontFile = path;
-            _settings.Save();
-            OnChanged();
-        }
+        get => XtcSettings.XtcFont;
+        set => XtcSettings.XtcFont = value;
     }
-
-    /// <summary>本文の文字サイズ（px）。8〜200 に丸める。</summary>
     public int XtcFontSize
     {
-        get => _xtcFontSize;
-        set => SettingsBinding.BindClamped(ref _xtcFontSize, value, 8, 200, () => { _settings.XtcFontSize = _xtcFontSize; _settings.Save(); }, OnChanged);
+        get => XtcSettings.XtcFontSize;
+        set => XtcSettings.XtcFontSize = value;
     }
-
-    /// <summary>
-    /// 本文の 2 値化しきい値。大きいほど線が太くなる。128〜250 に丸める。
-    /// 極端な値にすると全面白／全面黒になるため範囲を制限している。
-    /// </summary>
     public int XtcTextThreshold
     {
-        get => _xtcTextThreshold;
-        set => SettingsBinding.BindClamped(ref _xtcTextThreshold, value, 128, 250, () => { _settings.XtcTextThreshold = _xtcTextThreshold; _settings.Save(); }, OnChanged);
+        get => XtcSettings.XtcTextThreshold;
+        set => XtcSettings.XtcTextThreshold = value;
     }
-
-    /// <summary>上余白（px）。</summary>
     public int XtcPaddingTop
     {
-        get => _xtcPaddingTop;
-        set => SettingsBinding.BindClampedMin(ref _xtcPaddingTop, value, 0, () => { _settings.XtcPaddingTop = _xtcPaddingTop; _settings.Save(); }, OnChanged);
+        get => XtcSettings.XtcPaddingTop;
+        set => XtcSettings.XtcPaddingTop = value;
     }
-
-    /// <summary>下余白（px）。</summary>
     public int XtcPaddingBottom
     {
-        get => _xtcPaddingBottom;
-        set => SettingsBinding.BindClampedMin(ref _xtcPaddingBottom, value, 0, () => { _settings.XtcPaddingBottom = _xtcPaddingBottom; _settings.Save(); }, OnChanged);
+        get => XtcSettings.XtcPaddingBottom;
+        set => XtcSettings.XtcPaddingBottom = value;
     }
-
-    /// <summary>左余白（px）。</summary>
     public int XtcPaddingLeft
     {
-        get => _xtcPaddingLeft;
-        set => SettingsBinding.BindClampedMin(ref _xtcPaddingLeft, value, 0, () => { _settings.XtcPaddingLeft = _xtcPaddingLeft; _settings.Save(); }, OnChanged);
+        get => XtcSettings.XtcPaddingLeft;
+        set => XtcSettings.XtcPaddingLeft = value;
     }
-
-    /// <summary>右余白（px）。</summary>
     public int XtcPaddingRight
     {
-        get => _xtcPaddingRight;
-        set => SettingsBinding.BindClampedMin(ref _xtcPaddingRight, value, 0, () => { _settings.XtcPaddingRight = _xtcPaddingRight; _settings.Save(); }, OnChanged);
+        get => XtcSettings.XtcPaddingRight;
+        set => XtcSettings.XtcPaddingRight = value;
     }
 
     // ---- ダークモード ----
@@ -621,27 +552,7 @@ public sealed class MainViewModel : ViewModelBase
     }
 
     /// <summary>一覧にないフォントファイルをダイアログで選ぶ。</summary>
-    private void ChooseXtcFont()
-    {
-        var dlg = new OpenFileDialog
-        {
-            Title = "XTC描画に使うフォントを選択",
-            Filter = "フォントファイル (*.ttf;*.ttc;*.otf;*.otc)|*.ttf;*.ttc;*.otf;*.otc|すべてのファイル (*.*)|*.*",
-            InitialDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "Fonts"),
-        };
-        if (dlg.ShowDialog() != true) return;
-
-        _settings.XtcFontFile = dlg.FileName;
-        _settings.Save();
-
-        // 一覧にない場合は選択肢として足しておく。
-        if (!_fonts.Any(f => string.Equals(f.FilePath, dlg.FileName, StringComparison.OrdinalIgnoreCase)))
-            _fonts.Add(new XtcFont(Path.GetFileNameWithoutExtension(dlg.FileName), dlg.FileName, "指定"));
-
-        OnChanged(nameof(XtcFonts));
-        OnChanged(nameof(XtcFont));
-        StatusText = $"XTCフォント: {Path.GetFileName(dlg.FileName)}";
-    }
+    private void ChooseXtcFont() => XtcSettings.ChooseXtcFont(s => StatusText = s);
 
     // ---- XTC 変換 ----
 
