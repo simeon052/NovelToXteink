@@ -88,19 +88,11 @@ public sealed class LibraryStore
         Directory.CreateDirectory(folder);
     }
 
-    public List<LibraryEntry> Load()
-    {
-        if (!File.Exists(FilePath)) return [];
-        try
-        {
-            var json = File.ReadAllText(FilePath);
-            return JsonSerializer.Deserialize<List<LibraryEntry>>(json, JsonOpts) ?? [];
-        }
-        catch
-        {
-            return [];
-        }
-    }
+    /// <summary>
+    /// library.json を読む。壊れていたら library.json.bad に退避して空で始める
+    /// （退避しないと、次の <see cref="Save"/> で壊れたファイルごと元のデータを失う）。
+    /// </summary>
+    public List<LibraryEntry> Load() => JsonFileStore.Load(FilePath, JsonOpts, () => new List<LibraryEntry>());
 
     public void Save(IEnumerable<LibraryEntry> entries)
     {
@@ -172,17 +164,10 @@ public sealed class AppSettings
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
         "NovelToEink", "settings.json");
 
-    public static AppSettings Load()
-    {
-        try
-        {
-            if (File.Exists(SettingsPath))
-                return JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(SettingsPath), JsonOpts) ?? new AppSettings();
-        }
-        catch { /* ignore */ }
-        return new AppSettings();
-    }
+    /// <summary>settings.json を読む。壊れていたら settings.json.bad に退避して既定値で始める。</summary>
+    public static AppSettings Load() => JsonFileStore.Load(SettingsPath, JsonOpts, () => new AppSettings());
 
+    /// <summary>設定を保存する。保存に失敗しても操作は止めない（ログには残す）。</summary>
     public void Save()
     {
         try
@@ -190,7 +175,10 @@ public sealed class AppSettings
             Directory.CreateDirectory(Path.GetDirectoryName(SettingsPath)!);
             File.WriteAllText(SettingsPath, JsonSerializer.Serialize(this, JsonOpts));
         }
-        catch { /* ignore */ }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            CoreLog.Error($"設定を保存できません: {SettingsPath}", ex);
+        }
     }
 
     public EpubOptions ToEpubOptions() => new()

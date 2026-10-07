@@ -76,30 +76,26 @@ public sealed class ProofreadingService
     public static ProofreadingService Load(string? path = null)
     {
         path ??= DefaultPath;
-        if (File.Exists(path))
+        var existed = File.Exists(path);
+        // 壊れていたら proofreading.json.bad に退避して null を返す。退避しないと、下の
+        // 「初期ルールを保存」でユーザーが育てたルールを壊れた JSON ごと上書きして失ってしまう。
+        var rules = JsonFileStore.Load<List<ProofreadingRule>?>(path, ReadOpts, () => null);
+        if (rules != null)
         {
-            try
+            var updated = false;
+            foreach (var def in DefaultRules)
             {
-                var rules = JsonSerializer.Deserialize<List<ProofreadingRule>>(
-                    File.ReadAllText(path), ReadOpts);
-                if (rules != null)
+                if (!rules.Any(r => r.Name == def.Name))
                 {
-                    var updated = false;
-                    foreach (var def in DefaultRules)
-                    {
-                        if (!rules.Any(r => r.Name == def.Name))
-                        {
-                            rules.Add(def);
-                            updated = true;
-                        }
-                    }
-                    if (updated) SaveRules(rules, path);
-                    return new ProofreadingService(rules);
+                    rules.Add(def);
+                    updated = true;
                 }
             }
-            catch { }
+            if (updated) SaveRules(rules, path);
+            return new ProofreadingService(rules);
         }
-        // 初回起動時にデフォルトルールを保存
+        // ファイルが無い（初回起動）か、壊れていて退避した場合: デフォルトルールを保存して使う
+        if (existed) CoreLog.Warn($"校正ルールを読めなかったので、初期ルールで始めます: {path}");
         SaveRules(DefaultRules, path);
         return new ProofreadingService(DefaultRules);
     }
@@ -112,7 +108,10 @@ public sealed class ProofreadingService
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             File.WriteAllText(path, JsonSerializer.Serialize(rules.ToList(), WriteOpts));
         }
-        catch { }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            CoreLog.Error($"校正ルールを保存できません: {path}", ex);
+        }
     }
 
     /// <summary>有効な text_replace ルールを (From, To) リストで返す（PatchVertical 用）。</summary>
@@ -140,7 +139,11 @@ public sealed class ProofreadingService
                     _ => bodyHtml,
                 };
             }
-            catch { /* ルールの正規表現エラー等は無視して次のルールへ */ }
+            catch (Exception ex) when (ex is ArgumentException or RegexMatchTimeoutException)
+            {
+                // ルールの正規表現エラー・タイムアウトは、そのルールだけ飛ばして次へ進む
+                CoreLog.Warn($"校正ルール '{rule.Name}' を適用できません", ex);
+            }
         }
         return bodyHtml;
     }
