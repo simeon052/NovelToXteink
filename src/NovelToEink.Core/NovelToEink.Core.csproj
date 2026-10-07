@@ -14,6 +14,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="NovelToEink.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\NovelToEink.XtcConverter\NovelToEink.XtcConverter.csproj" />
   </ItemGroup>
 

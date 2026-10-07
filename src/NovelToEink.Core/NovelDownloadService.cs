@@ -15,9 +15,14 @@ public sealed class NovelDownloadService : IDisposable
     private readonly IReadOnlyList<INovelScraper> _scrapers;
 
     public NovelDownloadService(DownloadOptions? download = null)
+        : this(new HttpFetcher((download ?? new DownloadOptions()).RequestDelayMs))
     {
-        download ??= new DownloadOptions();
-        _fetcher = new HttpFetcher(download.RequestDelayMs);
+    }
+
+    /// <summary>HttpFetcher を差し替えられるコンストラクタ。テスト用。</summary>
+    internal NovelDownloadService(HttpFetcher fetcher)
+    {
+        _fetcher = fetcher;
         _scrapers = [new SyosetuScraper(_fetcher), new KakuyomuScraper(_fetcher)];
     }
 
@@ -193,7 +198,7 @@ public sealed class NovelDownloadService : IDisposable
         return new NovelDownload { Metadata = meta, Episodes = episodes, Images = images };
     }
 
-    private async Task<ScrapedImage?> TryDownloadImageAsync(string url, int episodeIndex, bool isOfficialCover, CancellationToken ct)
+    internal async Task<ScrapedImage?> TryDownloadImageAsync(string url, int episodeIndex, bool isOfficialCover, CancellationToken ct)
     {
         try
         {

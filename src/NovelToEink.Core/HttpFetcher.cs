@@ -13,9 +13,26 @@ public sealed class HttpFetcher : IDisposable
     private DateTimeOffset _lastRequest = DateTimeOffset.MinValue;
     private readonly SemaphoreSlim _gate = new(1, 1);
 
-    public HttpFetcher(int delayMs = 1500)
+    public HttpFetcher(int delayMs = 1500) : this(CreateDefaultHandler(), TimeSpan.FromSeconds(60), delayMs)
+    {
+    }
+
+    /// <summary>通信部分（ハンドラ）とタイムアウトを差し替えられるコンストラクタ。テスト用。</summary>
+    internal HttpFetcher(HttpMessageHandler handler, TimeSpan timeout, int delayMs)
     {
         _delayMs = delayMs;
+        _http = new HttpClient(handler)
+        {
+            Timeout = timeout,
+        };
+        var h = _http.DefaultRequestHeaders;
+        h.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36");
+        h.AcceptLanguage.ParseAdd("ja,en;q=0.8");
+        h.Accept.ParseAdd("text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8");
+    }
+
+    private static HttpClientHandler CreateDefaultHandler()
+    {
         var handler = new HttpClientHandler
         {
             AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate | DecompressionMethods.Brotli,
@@ -24,14 +41,7 @@ public sealed class HttpFetcher : IDisposable
         };
         // なろうの R18 サイト(novel18)向け年齢確認クッキー。一般作品では無害。
         handler.CookieContainer.Add(new Cookie("over18", "yes", "/", ".syosetu.com"));
-        _http = new HttpClient(handler)
-        {
-            Timeout = TimeSpan.FromSeconds(60),
-        };
-        var h = _http.DefaultRequestHeaders;
-        h.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36");
-        h.AcceptLanguage.ParseAdd("ja,en;q=0.8");
-        h.Accept.ParseAdd("text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8");
+        return handler;
     }
 
     /// <summary>HTMLテキストを取得（UTF-8前提、明示文字コードがあれば尊重）。</summary>

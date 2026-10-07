@@ -68,7 +68,7 @@ public sealed partial class SyosetuScraper(HttpFetcher fetcher) : INovelScraper
     }
 
     /// <summary>なろう公式APIから完結状態(end)と最終更新日(general_lastup)を取得。</summary>
-    private async Task<(bool Completed, DateTimeOffset? LastUp)> FetchNarouStatusAsync(
+    internal async Task<(bool Completed, DateTimeOffset? LastUp)> FetchNarouStatusAsync(
         string host, string ncode, CancellationToken ct)
     {
         var apiHost = host == "novel18" ? "novel18api" : "novelapi";
