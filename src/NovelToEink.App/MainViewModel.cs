@@ -24,9 +24,6 @@ public sealed class MainViewModel : ViewModelBase
     /// <summary>EPUB 生成設定のサブビューモデル。</summary>
     public EpubSettingsViewModel EpubSettings { get; }
 
-    /// <summary>ロガー。</summary>
-    private ILogger _log = null!;
-
     public ObservableCollection<LibraryItemVm> Items { get; } = [];
 
     public MainViewModel()
@@ -39,9 +36,6 @@ public sealed class MainViewModel : ViewModelBase
         
         // EPUB 設定サブビューモデルを初期化
         EpubSettings = new EpubSettingsViewModel(_settings);
-        
-        // ロガーを初期化
-        _log = new AppLogger(s => StatusText = s ?? "");
         
         ApplyTheme(_settings.IsDarkMode);
         Items.CollectionChanged += (_, _) => OnChanged(nameof(PickPendingCoversLabel));
