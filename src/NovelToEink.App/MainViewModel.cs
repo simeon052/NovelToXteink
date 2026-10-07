@@ -284,7 +284,7 @@ public sealed class MainViewModel : ViewModelBase
                     item?.SetCoverCandidateCount(images.Count);
                 });
             }
-            catch { /* 候補が集まらなくても本処理には影響しない */ }
+            catch (Exception ex) { CoreLog.Ignored($"表紙候補を集められない（本処理には影響しない）: {workId}", ex); }
         });
     }
 
@@ -305,7 +305,12 @@ public sealed class MainViewModel : ViewModelBase
                     if (has) updates++;
                 }
                 catch (OperationCanceledException) { throw; }
-                catch { item.Entry.Status = UpdateStatus.Error; }
+                catch (Exception ex)
+                {
+                    // 更新チェックの失敗。作品ごとの状態を Error にし、原因（通信断・サイト構造の変更など）を残す
+                    item.Entry.Status = UpdateStatus.Error;
+                    CoreLog.Warn($"更新チェックに失敗: {item.Entry.Title}", ex);
+                }
                 finally { item.IsBusy = false; item.Refresh(); }
             }
             StatusText = updates > 0

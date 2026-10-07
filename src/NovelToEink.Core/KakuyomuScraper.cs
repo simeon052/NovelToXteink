@@ -260,7 +260,7 @@ public sealed partial class KakuyomuScraper(HttpFetcher fetcher) : INovelScraper
         var json = script.InnerHtml; // script 内は生JSON
         JsonDocument parsed;
         try { parsed = JsonDocument.Parse(json); }
-        catch { return null; }
+        catch (JsonException ex) { CoreLog.Warn("カクヨムのページ内 JSON を解析できません（サイトの構造が変わった可能性）", ex); return null; }
 
         // 所有権を保持するため、必要部分を切り出してクローンする。
         var rootClone = parsed.RootElement.Clone();

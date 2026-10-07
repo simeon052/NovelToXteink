@@ -51,7 +51,8 @@ public sealed class DownloadCache
             if (DateTimeOffset.Now - dto.CachedAt > MetaTtl) return null;
             return dto.ToMetadata();
         }
-        catch { return null; }
+        catch (Exception ex) when (ex is JsonException or IOException)
+        { CoreLog.Ignored($"メタデータのキャッシュを読めない: {path}", ex); return null; }
     }
 
     /// <summary>メタデータをキャッシュに保存する。失敗は無視。</summary>
@@ -61,7 +62,8 @@ public sealed class DownloadCache
         {
             File.WriteAllText(MetaPath(), JsonSerializer.Serialize(MetaCacheEntry.From(meta), JsonOpts));
         }
-        catch { }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        { CoreLog.Ignored("メタデータのキャッシュを書けない", ex); }
     }
 
     // ---- エピソード ----
@@ -79,7 +81,8 @@ public sealed class DownloadCache
             if (dto.EpisodeUrl != null && dto.EpisodeUrl != ep.Url) return null;
             return dto.ToContent(ep);
         }
-        catch { return null; }
+        catch (Exception ex) when (ex is JsonException or IOException)
+        { CoreLog.Ignored($"エピソードのキャッシュを読めない: {path}", ex); return null; }
     }
 
     /// <summary>エピソードをキャッシュに保存する。失敗は無視。</summary>
@@ -90,7 +93,8 @@ public sealed class DownloadCache
             var dto = EpisodeCacheEntry.From(content);
             File.WriteAllText(EpisodePath(content.Ref.Index), JsonSerializer.Serialize(dto, JsonOpts));
         }
-        catch { }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        { CoreLog.Ignored("エピソードのキャッシュを書けない", ex); }
     }
 
     // ---- 画像 ----
@@ -101,14 +105,16 @@ public sealed class DownloadCache
         var path = ImagePath(url);
         if (!File.Exists(path)) return null;
         try { return File.ReadAllBytes(path); }
-        catch { return null; }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        { CoreLog.Ignored($"画像のキャッシュを読めない: {path}", ex); return null; }
     }
 
     /// <summary>画像をキャッシュに保存する。失敗は無視。</summary>
     public void SetImage(string url, byte[] data)
     {
         try { File.WriteAllBytes(ImagePath(url), data); }
-        catch { }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        { CoreLog.Ignored("画像のキャッシュを書けない", ex); }
     }
 
     // ---- パス計算 ----

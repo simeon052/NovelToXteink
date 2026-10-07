@@ -14,7 +14,11 @@ Thumbs.db
 
 ## 書籍データ・変換成果物（サイズが大きいためリポジトリには入れない）
 *.epub
+# *.xtc は Windows (core.ignorecase) だとフォルダ名 NovelToEink.Xtc にもマッチし、
+# そのプロジェクトの新規ファイルが黙って無視されてしまう。フォルダだけ例外にする。
+# ※ !*/ のような広い例外にすると bin/ obj/ の無視まで打ち消されるので使わない。
 *.xtc
+!NovelToEink.Xtc/
 sample/
 Epub/
 

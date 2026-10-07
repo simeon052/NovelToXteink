@@ -124,7 +124,8 @@ public static partial class NovelSearchService
             }
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
-        catch { /* 検索できなければ候補なしとして扱う */ }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or System.Text.Json.JsonException or InvalidOperationException)
+        { CoreLog.Warn("作品の検索に失敗（候補なしとして扱う）", ex); }
 
         return results;
     }
@@ -155,7 +156,8 @@ public static partial class NovelSearchService
             }
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
-        catch { /* 検索できなければ候補なしとして扱う */ }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or System.Text.Json.JsonException or InvalidOperationException)
+        { CoreLog.Warn("作品の検索に失敗（候補なしとして扱う）", ex); }
 
         return results;
     }

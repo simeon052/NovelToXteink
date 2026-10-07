@@ -56,7 +56,8 @@ public static class ImageSearchService
                 if (img != null) results.Add(img);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
-            catch { /* 取得失敗は無視して次へ */ }
+            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException)
+            { CoreLog.Ignored($"画像を取得できない（次へ）: {url}", ex); }
         }
         return results;
     }
@@ -77,7 +78,8 @@ public static class ImageSearchService
                 if (seen.Add(u)) urls.Add(u);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
-        catch { }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        { CoreLog.Warn("Bing 画像検索に失敗（Google へ切り替える）", ex); }
 
         // Fallback: Google Images
         if (urls.Count < 5)
@@ -92,7 +94,8 @@ public static class ImageSearchService
                     if (seen.Add(u)) urls.Add(u);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
-            catch { }
+            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+            { CoreLog.Warn("Google 画像検索に失敗", ex); }
         }
 
         return urls;

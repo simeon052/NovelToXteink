@@ -134,8 +134,9 @@ public static partial class EpubBuilder
                         imageBytes[file] = ImageProcessor.EncodeForEpub(img.Data, options, isCover: false);
                         urlToFile[url] = file;
                     }
-                    catch
+                    catch (Exception ex)
                     {
+                        CoreLog.Warn($"挿絵のエンコードに失敗: {url}", ex);
                         n--; // エンコード失敗。本文側でタグを除去する。
                         progress?.Report($"挿絵のエンコードに失敗: {url}");
                     }
@@ -148,7 +149,12 @@ public static partial class EpubBuilder
         if (cover != null)
         {
             try { coverBytes = ImageProcessor.EncodeForEpub(cover.Data, options, isCover: true, part, partCount); }
-            catch { progress?.Report("表紙のエンコードに失敗しました。表紙なしで続行します。"); }
+            catch (Exception ex)
+            {
+                // 画像デコード側の例外の種類は多岐にわたるため絞らず、表紙なしで続行する（原因はログに残す）
+                CoreLog.Warn("表紙のエンコードに失敗", ex);
+                progress?.Report("表紙のエンコードに失敗しました。表紙なしで続行します。");
+            }
         }
 
         // --- 出力 ---

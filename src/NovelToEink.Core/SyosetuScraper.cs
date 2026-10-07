@@ -88,8 +88,9 @@ public sealed partial class SyosetuScraper(HttpFetcher fetcher) : INovelScraper
                 lastup = new DateTimeOffset(dt, TimeSpan.FromHours(9)); // JST
             return (end == 0, lastup); // end==0 → 完結済/短編
         }
-        catch
+        catch (Exception ex) when (ex is JsonException or HttpRequestException or FormatException)
         {
+            CoreLog.Warn("なろう API からの完結状態・最終更新日の取得に失敗（未完結として扱う）", ex);
             return (false, null);
         }
     }

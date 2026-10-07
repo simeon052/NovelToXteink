@@ -13,9 +13,9 @@ public static class CoverSelection
         if (official != null) return official;
 
         try { return ImageProcessor.GenerateTextCover(novel.Metadata.Title, novel.Metadata.Author, options); }
-        catch { /* フォント不備などは下のフォールバックへ */ }
+        catch (Exception ex) { CoreLog.Warn("文字表紙を作れないので簡易表紙にする（フォント不備など）", ex); }
 
         try { return ImageProcessor.GenerateMinimalCover(); }
-        catch { return null; }
+        catch (Exception ex) { CoreLog.Error("簡易表紙も作れない", ex); return null; }
     }
 }

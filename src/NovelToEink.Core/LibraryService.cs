@@ -121,7 +121,12 @@ public sealed class LibraryService
                     if (File.Exists(newPath)) File.Delete(newPath);
                     File.Move(old, newPath);
                 }
-                catch { newPath = old; }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    // 名前を変えられなかった（他で開かれている等）。元のファイル名のまま続ける。
+                    CoreLog.Warn($"ファイル名を変更できません: {old} -> {newPath}", ex);
+                    newPath = old;
+                }
             }
             newPaths.Add(File.Exists(newPath) ? newPath : old);
         }
@@ -198,14 +203,19 @@ public sealed class LibraryService
         Persist();
     }
 
+    // 削除に失敗してもライブラリからの除去は進める（ファイルが他で開かれている等）。残骸はログに残す。
     private static void TryDelete(string path)
     {
-        try { if (File.Exists(path)) File.Delete(path); } catch { /* ignore */ }
+        try { if (File.Exists(path)) File.Delete(path); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        { CoreLog.Warn($"ファイルを削除できません: {path}", ex); }
     }
 
     private static void TryDeleteDirectory(string path)
     {
-        try { if (Directory.Exists(path)) Directory.Delete(path, recursive: true); } catch { }
+        try { if (Directory.Exists(path)) Directory.Delete(path, recursive: true); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        { CoreLog.Warn($"フォルダを削除できません: {path}", ex); }
     }
 
     private static bool SameWork(LibraryEntry e, NovelMetadata m) => e.Site == m.Site && e.WorkId == m.WorkId;

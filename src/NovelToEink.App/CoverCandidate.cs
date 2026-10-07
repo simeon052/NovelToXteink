@@ -42,8 +42,10 @@ public sealed class CoverCandidate
                 var processed = ImageProcessor.EncodeForEpub(img.Data, previewOpts, isCover: true);
                 thumb = MakeThumb(processed);
             }
-            catch
+            catch (Exception ex)
             {
+                // プレビュー用の再エンコードに失敗したら、元の画像でサムネイルを作る
+                CoreLog.Ignored("表紙候補のプレビュー変換に失敗（元画像で代用）", ex);
                 thumb = MakeThumb(img.Data);
             }
         }

@@ -200,8 +200,9 @@ public sealed class NovelDownloadService : IDisposable
             var bytes = await _fetcher.GetBytesAsync(url, ct).ConfigureAwait(false);
             return ImageProcessor.TryLoad(bytes, url, episodeIndex, isOfficialCover);
         }
-        catch
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
+            CoreLog.Ignored($"画像を取得できない: {url}", ex);
             return null; // 画像1枚の失敗は致命ではない。
         }
     }
