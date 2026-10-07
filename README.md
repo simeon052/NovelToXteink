@@ -15,6 +15,15 @@ Web小説をダウンロードし、**Xteink X3 / X4 Pro** のような非力な
 | `src/NovelToEink.Xtc`  | classlib (net10.0) | **XTC/XTG 書き出しと縦書き組版**（単体で NuGet 配布可） |
 | `src/NovelToEink.App`  | WPF (net10.0-windows) | GUI（URL/タイトル入力→ダウンロード→EPUB/XTC生成） |
 | `src/NovelToEink.Cli`  | console (net10.0) | ヘッドレス／バッチ用CLI |
+| `tests/NovelToEink.Tests` | xUnit (net10.0) | Core / Xtc の単体テスト（UI・ネットワークに依存しない部分） |
+
+### テスト
+
+```powershell
+dotnet test
+```
+
+対象は、ファイル名の整形・禁則処理・XHTML 化・JSON の退避（壊れた `library.json` / `settings.json` / `proofreading.json` を `*.bad` に移して、ユーザーのデータを上書きで失わない）など、外部に依存しない純粋なロジック。スクレイパーや GUI はテストしていない。
 
 ## 使い方（GUI）
 
