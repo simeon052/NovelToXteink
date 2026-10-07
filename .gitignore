@@ -17,3 +17,6 @@ Thumbs.db
 *.xtc
 sample/
 Epub/
+
+## 配布用にまとめたビルド成果物 (550MB)。GitHub Releases で配るのでリポジトリには入れない
+release/
