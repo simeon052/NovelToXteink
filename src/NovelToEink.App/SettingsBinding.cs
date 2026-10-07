@@ -1,66 +1,28 @@
-using System.ComponentModel;
-using System.Runtime.CompilerServices;
+using NovelToEink.Core;
 
 namespace NovelToEink.App;
 
 /// <summary>
-/// AppSettings のプロパティを ViewModel にバインドするためのヘルパー。
-/// 値の変更時に自動的に Settings.Save() を呼び出す。
+/// <see cref="AppSettings"/> の 1 項目を書き換えて保存するためのヘルパー。
+/// 設定値の保持場所は <see cref="AppSettings"/> だけにして、ViewModel 側にコピーを持たない。
+/// 変更通知（PropertyChanged）は、<c>true</c> が返ったときだけ呼び出し側の ViewModel が上げる。
 /// </summary>
-public static class SettingsBinding
+internal static class SettingsBinding
 {
-    /// <summary>
-    /// 設定値を取得・設定する。値が変更されたら Settings を保存し、OnChanged を呼ぶ。
-    /// </summary>
-    public static bool Bind<T>(
-        ref T field,
-        T value,
-        Action? onSave,
-        Action<string?> notify)
+    /// <summary>値が変わっていれば設定へ書き込んで保存する。変わったときだけ true を返す。</summary>
+    public static bool Write<T>(AppSettings settings, T current, T value, Action<T> assign)
     {
-        if (EqualityComparer<T>.Default.Equals(field, value)) return false;
-        field = value;
-        onSave?.Invoke();
-        notify(null);
+        if (EqualityComparer<T>.Default.Equals(current, value)) return false;
+        assign(value);
+        settings.Save();
         return true;
     }
 
-    /// <summary>
-    /// クランプ付き設定バインディング。min/max で値を制限する。
-    /// </summary>
-    public static bool BindClamped(
-        ref int field,
-        int value,
-        int min,
-        int max,
-        Action? onSave,
-        Action<string?> notify,
-        [CallerMemberName] string? propertyName = null)
-    {
-        var clamped = Math.Clamp(value, min, max);
-        if (field == clamped) return false;
-        field = clamped;
-        onSave?.Invoke();
-        notify(propertyName);
-        return true;
-    }
+    /// <summary>範囲 [min, max] に丸めてから <see cref="Write{T}"/> する。</summary>
+    public static bool WriteClamped(AppSettings settings, int current, int value, int min, int max, Action<int> assign)
+        => Write(settings, current, Math.Clamp(value, min, max), assign);
 
-    /// <summary>
-    /// 下限のみチェック付き設定バインディング。
-    /// </summary>
-    public static bool BindClampedMin(
-        ref int field,
-        int value,
-        int min,
-        Action? onSave,
-        Action<string?> notify,
-        [CallerMemberName] string? propertyName = null)
-    {
-        var clamped = Math.Max(min, value);
-        if (field == clamped) return false;
-        field = clamped;
-        onSave?.Invoke();
-        notify(propertyName);
-        return true;
-    }
+    /// <summary>下限だけを丸めてから <see cref="Write{T}"/> する。</summary>
+    public static bool WriteMin(AppSettings settings, int current, int value, int min, Action<int> assign)
+        => Write(settings, current, Math.Max(min, value), assign);
 }

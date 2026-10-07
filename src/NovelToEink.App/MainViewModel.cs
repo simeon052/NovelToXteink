@@ -21,6 +21,12 @@ public sealed class MainViewModel : ViewModelBase
     /// <summary>XTC 出力設定のサブビューモデル。</summary>
     public XtcSettingsViewModel XtcSettings { get; }
 
+    /// <summary>EPUB 生成設定のサブビューモデル。</summary>
+    public EpubSettingsViewModel EpubSettings { get; }
+
+    /// <summary>ロガー。</summary>
+    private ILogger _log = null!;
+
     public ObservableCollection<LibraryItemVm> Items { get; } = [];
 
     public MainViewModel()
@@ -29,7 +35,13 @@ public sealed class MainViewModel : ViewModelBase
         _service = new LibraryService(_settings);
         
         // XTC 設定サブビューモデルを初期化
-        XtcSettings = new XtcSettingsViewModel(_settings, OnChanged);
+        XtcSettings = new XtcSettingsViewModel(_settings);
+        
+        // EPUB 設定サブビューモデルを初期化
+        EpubSettings = new EpubSettingsViewModel(_settings);
+        
+        // ロガーを初期化
+        _log = new AppLogger(s => StatusText = s ?? "");
         
         ApplyTheme(_settings.IsDarkMode);
         Items.CollectionChanged += (_, _) => OnChanged(nameof(PickPendingCoversLabel));
@@ -72,119 +84,6 @@ public sealed class MainViewModel : ViewModelBase
     public bool HasInputs => ParseInputs(_urlsText).Count > 0;
 
     public string OutputFolder => _settings.OutputFolder;
-
-    // 設定バインディング — SettingsBinding ヘルパー使用
-    private bool _vertical;
-    public bool Vertical
-    {
-        get => _vertical;
-        set => SettingsBinding.Bind(ref _vertical, value, _settings.Save, OnChanged);
-    }
-
-    private bool _grayscaleImages;
-    public bool GrayscaleImages
-    {
-        get => _grayscaleImages;
-        set => SettingsBinding.Bind(ref _grayscaleImages, value, _settings.Save, OnChanged);
-    }
-
-    private bool _includeInlineImages;
-    public bool IncludeInlineImages
-    {
-        get => _includeInlineImages;
-        set => SettingsBinding.Bind(ref _includeInlineImages, value, _settings.Save, OnChanged);
-    }
-
-    private bool _keepRuby;
-    public bool KeepRuby
-    {
-        get => _keepRuby;
-        set => SettingsBinding.Bind(ref _keepRuby, value, _settings.Save, OnChanged);
-    }
-
-    private int _requestDelayMs;
-    public int RequestDelayMs
-    {
-        get => _requestDelayMs;
-        set => SettingsBinding.Bind(ref _requestDelayMs, value, _settings.Save, OnChanged);
-    }
-
-    private int _episodesPerFile;
-    public int EpisodesPerFile
-    {
-        get => _episodesPerFile;
-        set => SettingsBinding.Bind(ref _episodesPerFile, value, _settings.Save, OnChanged);
-    }
-
-    private bool _enableProofreading;
-    public bool EnableProofreading
-    {
-        get => _enableProofreading;
-        set => SettingsBinding.Bind(ref _enableProofreading, value, _settings.Save, OnChanged);
-    }
-
-    /// <summary>追加時に表紙選択で止まらず、暫定表紙で先へ進むか。</summary>
-    private bool _autoCover;
-    public bool AutoCover
-    {
-        get => _autoCover;
-        set => SettingsBinding.Bind(ref _autoCover, value, _settings.Save, OnChanged);
-    }
-
-    // ---- XTC 出力 ----
-
-    /// <summary>EPUB 生成後に XTC も作るか。</summary>
-    private bool _generateXtc;
-    public bool GenerateXtc
-    {
-        get => _generateXtc;
-        set => SettingsBinding.Bind(ref _generateXtc, value, _settings.Save, OnChanged);
-    }
-
-    /// <summary>XTC 設定のフォワーディングプロパティ。</summary>
-    public IReadOnlyList<XteinkDevice> XtcDevices => XtcSettings.XtcDevices;
-    public XteinkDevice XtcDevice
-    {
-        get => XtcSettings.XtcDevice;
-        set => XtcSettings.XtcDevice = value;
-    }
-    public string XtcResolutionText => XtcSettings.XtcResolutionText;
-    public IReadOnlyList<XtcFont> XtcFonts => XtcSettings.XtcFonts;
-    public XtcFont? XtcFont
-    {
-        get => XtcSettings.XtcFont;
-        set => XtcSettings.XtcFont = value;
-    }
-    public int XtcFontSize
-    {
-        get => XtcSettings.XtcFontSize;
-        set => XtcSettings.XtcFontSize = value;
-    }
-    public int XtcTextThreshold
-    {
-        get => XtcSettings.XtcTextThreshold;
-        set => XtcSettings.XtcTextThreshold = value;
-    }
-    public int XtcPaddingTop
-    {
-        get => XtcSettings.XtcPaddingTop;
-        set => XtcSettings.XtcPaddingTop = value;
-    }
-    public int XtcPaddingBottom
-    {
-        get => XtcSettings.XtcPaddingBottom;
-        set => XtcSettings.XtcPaddingBottom = value;
-    }
-    public int XtcPaddingLeft
-    {
-        get => XtcSettings.XtcPaddingLeft;
-        set => XtcSettings.XtcPaddingLeft = value;
-    }
-    public int XtcPaddingRight
-    {
-        get => XtcSettings.XtcPaddingRight;
-        set => XtcSettings.XtcPaddingRight = value;
-    }
 
     // ---- ダークモード ----
     public bool IsDarkMode
@@ -262,7 +161,7 @@ public sealed class MainViewModel : ViewModelBase
     public AsyncRelayCommand ConvertAllXtcCommand { get; }
     public RelayCommand ChooseXtcFontCommand { get; }
 
-    private EpubOptions Options => _settings.ToEpubOptions();
+    private EpubOptions Options => EpubSettings.ToEpubOptions();
 
     private Progress<DownloadProgress> MakeDlProgress() => new(p =>
     {
@@ -552,7 +451,7 @@ public sealed class MainViewModel : ViewModelBase
     }
 
     /// <summary>一覧にないフォントファイルをダイアログで選ぶ。</summary>
-    private void ChooseXtcFont() => XtcSettings.ChooseXtcFont(s => StatusText = s);
+    private void ChooseXtcFont() => XtcSettings.ChooseXtcFont(s => { if (s != null) StatusText = s; });
 
     // ---- XTC 変換 ----
 
@@ -964,14 +863,12 @@ public sealed class MainViewModel : ViewModelBase
                     {
                         LibraryService.ApplyImportedSettings(_settings, importedSettings);
                         _settings.Save();
+                        
+                        // 設定が丸ごと差し替わったので、各サブビューモデルの全項目を再読み込みさせる
+                        EpubSettings.NotifyAllChanged();
+                        XtcSettings.NotifyAllChanged();
+                        
                         ApplyTheme(_settings.IsDarkMode);
-                        OnChanged(nameof(Vertical));
-                        OnChanged(nameof(GrayscaleImages));
-                        OnChanged(nameof(IncludeInlineImages));
-                        OnChanged(nameof(KeepRuby));
-                        OnChanged(nameof(EnableProofreading));
-                        OnChanged(nameof(EpisodesPerFile));
-                        OnChanged(nameof(RequestDelayMs));
                         OnChanged(nameof(IsDarkMode));
                         OnChanged(nameof(DarkModeToggleLabel));
                     }
