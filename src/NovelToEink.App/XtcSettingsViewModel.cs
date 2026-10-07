@@ -76,18 +76,24 @@ public sealed class XtcSettingsViewModel : ViewModelBase
         }
     }
 
-    /// <summary>本文の文字サイズ（px）。8〜200 に丸める。</summary>
+    /// <summary>文字サイズ（px）の下限・上限。入力はこの範囲に丸める。</summary>
+    public const int MinFontSize = 8, MaxFontSize = 200;
+
+    /// <summary>本文の 2 値化しきい値の下限・上限。入力はこの範囲に丸める。</summary>
+    public const int MinTextThreshold = 128, MaxTextThreshold = 250;
+
+    /// <summary>本文の文字サイズ（px）。<see cref="MinFontSize"/>〜<see cref="MaxFontSize"/> に丸める。</summary>
     public int XtcFontSize
     {
         get => _settings.XtcFontSize;
-        set { if (SettingsBinding.WriteClamped(_settings, _settings.XtcFontSize, value, 8, 200, v => _settings.XtcFontSize = v)) OnChanged(); }
+        set { if (SettingsBinding.WriteClamped(_settings, _settings.XtcFontSize, value, MinFontSize, MaxFontSize, v => _settings.XtcFontSize = v)) OnChanged(); }
     }
 
-    /// <summary>本文の 2 値化しきい値。128〜250 に丸める。</summary>
+    /// <summary>本文の 2 値化しきい値。<see cref="MinTextThreshold"/>〜<see cref="MaxTextThreshold"/> に丸める。</summary>
     public int XtcTextThreshold
     {
         get => _settings.XtcTextThreshold;
-        set { if (SettingsBinding.WriteClamped(_settings, _settings.XtcTextThreshold, value, 128, 250, v => _settings.XtcTextThreshold = v)) OnChanged(); }
+        set { if (SettingsBinding.WriteClamped(_settings, _settings.XtcTextThreshold, value, MinTextThreshold, MaxTextThreshold, v => _settings.XtcTextThreshold = v)) OnChanged(); }
     }
 
     /// <summary>上余白（px）。</summary>
