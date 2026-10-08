@@ -6,4 +6,7 @@
     <Project Path="src/NovelToEink.Xtc/NovelToEink.Xtc.csproj" />
     <Project Path="src/NovelToEink.XtcConverter/NovelToEink.XtcConverter.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/NovelToEink.Tests/NovelToEink.Tests.csproj" />
+  </Folder>
 </Solution>
