@@ -2,6 +2,7 @@ using System;
 using System.IO.Compression;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Xml.Linq;
 using NovelToEink.XtcConverter;
 
 namespace NovelToEink.Core;
@@ -273,121 +274,256 @@ public static partial class EpubBuilder
         return html;
     }
 
-    // ---- 各種XML生成 ----
+    // ---- XML namespace constants ----
+    private static readonly XNamespace XhtmlNs = "http://www.w3.org/1999/xhtml";
+    private static readonly XNamespace EpubNs = "http://www.idpf.org/2007/ops";
+    private static readonly XNamespace DcNs = "http://purl.org/dc/elements/1.1/";
+    private static readonly XNamespace ContainerNs = "urn:oasis:names:tc:opendocument:xmlns:container";
+
+    // ---- 各種XML生成（XElement ベース） ----
+
+    /// <summary>EPUB3 XHTML ドキュメント全体を生成する。</summary>
     private static string XhtmlDocument(string title, string bodyInner, string cssRelFromText)
     {
-        // text/ 配下からは ../style.css
         var css = cssRelFromText == "style.css" ? "../style.css" : cssRelFromText;
-        return
-            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
-            "<!DOCTYPE html>\n" +
-            "<html xmlns=\"http://www.w3.org/1999/xhtml\" xmlns:epub=\"http://www.idpf.org/2007/ops\" xml:lang=\"ja\" lang=\"ja\">\n" +
-            "<head>\n<meta charset=\"UTF-8\"/>\n" +
-            $"<title>{XhtmlSanitizer.XmlEscape(title)}</title>\n" +
-            $"<link rel=\"stylesheet\" type=\"text/css\" href=\"{css}\"/>\n" +
-            "</head>\n<body>\n" + bodyInner + "\n</body>\n</html>\n";
+
+        var html = new XElement(XhtmlNs + "html",
+            new XAttribute("xmlns", XhtmlNs),
+            new XAttribute(XNamespace.Xmlns + "epub", EpubNs),
+            new XAttribute(XNamespace.Xmlns + "xml", "http://www.w3.org/XML/1998/namespace"),
+            new XAttribute("lang", "ja"),
+            new XAttribute(XNamespace.Get("http://www.w3.org/XML/1998/namespace") + "lang", "ja"),
+            new XElement(XhtmlNs + "head",
+                new XElement(XhtmlNs + "meta",
+                    new XAttribute("charset", "UTF-8")),
+                new XElement(XhtmlNs + "title", XhtmlSanitizer.XmlEscape(title)),
+                new XElement(XhtmlNs + "link",
+                    new XAttribute("rel", "stylesheet"),
+                    new XAttribute("type", "text/css"),
+                    new XAttribute("href", css))
+            ),
+            new XElement(XhtmlNs + "body",
+                bodyInner)
+        );
+
+        var doc = new XDocument(
+            new XDeclaration("1.0", "UTF-8", null),
+            new XDocumentType("html", null, null, null),
+            html);
+        return doc.ToString(SaveOptions.DisableFormatting);
     }
 
+    /// <summary>表紙ページ（cover.xhtml）を生成する。</summary>
     private static string CoverXhtml(string title)
     {
-        var inner = "<div class=\"cover\"><img src=\"images/cover.jpg\" alt=\"" + XhtmlSanitizer.XmlEscape(title) + "\"/></div>";
-        return
-            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
-            "<!DOCTYPE html>\n" +
-            "<html xmlns=\"http://www.w3.org/1999/xhtml\" xmlns:epub=\"http://www.idpf.org/2007/ops\" xml:lang=\"ja\" lang=\"ja\">\n" +
-            "<head>\n<meta charset=\"UTF-8\"/>\n<title>表紙</title>\n" +
-            "<link rel=\"stylesheet\" type=\"text/css\" href=\"style.css\"/>\n</head>\n" +
-            "<body class=\"coverbody\">\n" + inner + "\n</body>\n</html>\n";
+        var inner = new XElement(XhtmlNs + "div",
+            new XAttribute("class", "cover"),
+            new XElement(XhtmlNs + "img",
+                new XAttribute("src", "images/cover.jpg"),
+                new XAttribute("alt", XhtmlSanitizer.XmlEscape(title))));
+
+        var html = new XElement(XhtmlNs + "html",
+            new XAttribute("xmlns", XhtmlNs),
+            new XAttribute(XNamespace.Xmlns + "epub", EpubNs),
+            new XAttribute(XNamespace.Xmlns + "xml", "http://www.w3.org/XML/1998/namespace"),
+            new XAttribute("lang", "ja"),
+            new XAttribute(XNamespace.Get("http://www.w3.org/XML/1998/namespace") + "lang", "ja"),
+            new XElement(XhtmlNs + "head",
+                new XElement(XhtmlNs + "meta",
+                    new XAttribute("charset", "UTF-8")),
+                new XElement(XhtmlNs + "title", "表紙"),
+                new XElement(XhtmlNs + "link",
+                    new XAttribute("rel", "stylesheet"),
+                    new XAttribute("type", "text/css"),
+                    new XAttribute("href", "style.css"))),
+            new XElement(XhtmlNs + "body",
+                new XAttribute("class", "coverbody"),
+                inner));
+
+        var doc = new XDocument(
+            new XDeclaration("1.0", "UTF-8", null),
+            new XDocumentType("html", null, null, null),
+            html);
+        return doc.ToString(SaveOptions.DisableFormatting);
     }
 
+    /// <summary>nav.xhtml（EPUB3 NCX 代替）を生成する。</summary>
     private static string NavXhtml(NovelMetadata meta, List<(int Index, string? Chapter, string Title, string File)> items)
     {
-        var sb = new StringBuilder();
-        sb.Append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE html>\n");
-        sb.Append("<html xmlns=\"http://www.w3.org/1999/xhtml\" xmlns:epub=\"http://www.idpf.org/2007/ops\" xml:lang=\"ja\" lang=\"ja\">\n");
-        sb.Append("<head>\n<meta charset=\"UTF-8\"/>\n<title>目次</title>\n</head>\n<body>\n");
-        sb.Append("<nav epub:type=\"toc\" id=\"toc\">\n<h1>目次</h1>\n<ol>\n");
+        var navItems = new XElement(XhtmlNs + "nav",
+            new XAttribute(EpubNs + "type", "toc"),
+            new XAttribute("id", "toc"),
+            new XElement(XhtmlNs + "h1", "目次"),
+            BuildNavList(items));
 
+        var html = new XElement(XhtmlNs + "html",
+            new XAttribute("xmlns", XhtmlNs),
+            new XAttribute(XNamespace.Xmlns + "epub", EpubNs),
+            new XAttribute(XNamespace.Xmlns + "xml", "http://www.w3.org/XML/1998/namespace"),
+            new XAttribute("lang", "ja"),
+            new XAttribute(XNamespace.Get("http://www.w3.org/XML/1998/namespace") + "lang", "ja"),
+            new XElement(XhtmlNs + "head",
+                new XElement(XhtmlNs + "meta",
+                    new XAttribute("charset", "UTF-8")),
+                new XElement(XhtmlNs + "title", "目次")),
+            new XElement(XhtmlNs + "body", navItems));
+
+        var doc = new XDocument(
+            new XDeclaration("1.0", "UTF-8", null),
+            new XDocumentType("html", null, null, null),
+            html);
+        return doc.ToString(SaveOptions.DisableFormatting);
+    }
+
+    /// <summary>目次リストを構築する。章（Chapter）が変わると <li><span>...</span><ol>...</ol></li> を生成。</summary>
+    private static XElement BuildNavList(List<(int Index, string? Chapter, string Title, string File)> items)
+    {
+        var ol = new XElement(XhtmlNs + "ol");
         string? currentChapter = null;
-        var chapterOpen = false;
-        var inChapterListOpen = false;
+        XElement? currentChapterOl = null;
+
         foreach (var it in items)
         {
             if (it.Chapter != currentChapter)
             {
-                // 前の章のサブリストを閉じる
-                if (inChapterListOpen) { sb.Append("</ol></li>\n"); inChapterListOpen = false; }
-                else if (chapterOpen) { sb.Append("</li>\n"); chapterOpen = false; }
-
                 currentChapter = it.Chapter;
                 if (!string.IsNullOrWhiteSpace(currentChapter))
                 {
-                    sb.Append("<li><span>" + XhtmlSanitizer.XmlEscape(currentChapter!.Replace('　', ' ')) + "</span>\n<ol>\n");
-                    inChapterListOpen = true;
+                    var chapterSpan = new XElement(XhtmlNs + "span",
+                        XhtmlSanitizer.XmlEscape(currentChapter!.Replace(' ', ' ')));
+                    currentChapterOl = new XElement(XhtmlNs + "ol");
+                    ol.Add(new XElement(XhtmlNs + "li",
+                        chapterSpan,
+                        currentChapterOl));
                 }
             }
-            sb.Append("<li><a href=\"" + it.File + "\">")
-              .Append(XhtmlSanitizer.XmlEscape(it.Title.Replace('　', ' '))).Append("</a></li>\n");
-        }
-        if (inChapterListOpen) sb.Append("</ol></li>\n");
 
-        sb.Append("</ol>\n</nav>\n</body>\n</html>\n");
-        return sb.ToString();
+            var li = new XElement(XhtmlNs + "li",
+                new XElement(XhtmlNs + "a",
+                    new XAttribute("href", it.File),
+                    XhtmlSanitizer.XmlEscape(it.Title.Replace(' ', ' '))));
+
+            (currentChapterOl ?? ol).Add(li);
+        }
+
+        return ol;
     }
 
+    /// <summary>content.opf（EPUB3 パッケージ文書）を生成する。</summary>
     private static string ContentOpf(
         NovelMetadata meta, string displayTitle, string uuid, bool hasCover,
         List<string> spine, List<string> manifest, IEnumerable<string> imageFiles, EpubOptions opt)
     {
-        var sb = new StringBuilder();
-        sb.Append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
-        sb.Append("<package xmlns=\"http://www.idpf.org/2007/opf\" version=\"3.0\" unique-identifier=\"bookid\" xml:lang=\"ja\">\n");
-        sb.Append("  <metadata xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n");
-        sb.Append($"    <dc:identifier id=\"bookid\">urn:uuid:{uuid}</dc:identifier>\n");
-        sb.Append($"    <dc:title>{XhtmlSanitizer.XmlEscape(displayTitle)}</dc:title>\n");
-        sb.Append($"    <dc:language>{opt.Language}</dc:language>\n");
-        if (!string.IsNullOrWhiteSpace(meta.Author))
-            sb.Append($"    <dc:creator>{XhtmlSanitizer.XmlEscape(meta.Author)}</dc:creator>\n");
-        if (!string.IsNullOrWhiteSpace(meta.Description))
-            sb.Append($"    <dc:description>{XhtmlSanitizer.XmlEscape(meta.Description)}</dc:description>\n");
-        sb.Append($"    <dc:source>{XhtmlSanitizer.XmlEscape(meta.Url)}</dc:source>\n");
-        sb.Append($"    <meta property=\"dcterms:modified\">{DateTime.UtcNow:yyyy-MM-ddTHH:mm:ssZ}</meta>\n");
-        if (hasCover)
-            sb.Append("    <meta name=\"cover\" content=\"cover-img\"/>\n");
-        sb.Append("  </metadata>\n");
+        var metadata = new XElement(DcNs + "metadata",
+            new XAttribute(XNamespace.Xmlns + "dc", DcNs),
+            new XElement(DcNs + "identifier",
+                new XAttribute("id", "bookid"),
+                $"urn:uuid:{uuid}"),
+            new XElement(DcNs + "title", XhtmlSanitizer.XmlEscape(displayTitle)),
+            new XElement(DcNs + "language", opt.Language),
+            meta.Author is not null and not "" ? new XElement(DcNs + "creator", XhtmlSanitizer.XmlEscape(meta.Author)) : null,
+            meta.Description is not null and not "" ? new XElement(DcNs + "description", XhtmlSanitizer.XmlEscape(meta.Description)) : null,
+            new XElement(DcNs + "source", XhtmlSanitizer.XmlEscape(meta.Url)),
+            new XElement(XhtmlNs + "meta",
+                new XAttribute("property", "dcterms:modified"),
+                DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")),
+            hasCover ? new XElement(XhtmlNs + "meta",
+                new XAttribute("name", "cover"),
+                new XAttribute("content", "cover-img")) : null);
 
-        sb.Append("  <manifest>\n");
-        sb.Append("    <item id=\"nav\" href=\"nav.xhtml\" media-type=\"application/xhtml+xml\" properties=\"nav\"/>\n");
-        sb.Append("    <item id=\"css\" href=\"style.css\" media-type=\"text/css\"/>\n");
+        var manifestItems = new List<XElement>
+        {
+            new XElement(XhtmlNs + "item",
+                new XAttribute("id", "nav"),
+                new XAttribute("href", "nav.xhtml"),
+                new XAttribute("media-type", "application/xhtml+xml"),
+                new XAttribute("properties", "nav")),
+            new XElement(XhtmlNs + "item",
+                new XAttribute("id", "css"),
+                new XAttribute("href", "style.css"),
+                new XAttribute("media-type", "text/css"))
+        };
+
         if (hasCover)
         {
-            sb.Append("    <item id=\"cover-img\" href=\"images/cover.jpg\" media-type=\"image/jpeg\" properties=\"cover-image\"/>\n");
-            sb.Append("    <item id=\"cover-page\" href=\"cover.xhtml\" media-type=\"application/xhtml+xml\"/>\n");
+            manifestItems.Add(new XElement(XhtmlNs + "item",
+                new XAttribute("id", "cover-img"),
+                new XAttribute("href", "images/cover.jpg"),
+                new XAttribute("media-type", "image/jpeg"),
+                new XAttribute("properties", "cover-image")));
+            manifestItems.Add(new XElement(XhtmlNs + "item",
+                new XAttribute("id", "cover-page"),
+                new XAttribute("href", "cover.xhtml"),
+                new XAttribute("media-type", "application/xhtml+xml")));
         }
-        foreach (var m in manifest) sb.Append(m).Append('\n');
+
+        foreach (var m in manifest)
+        {
+            var el = XElement.Parse(m);
+            if (el.Name.Namespace == XNamespace.None)
+                el.Name = XhtmlNs + el.Name.LocalName;
+            manifestItems.Add(el);
+        }
+
         var k = 0;
         foreach (var f in imageFiles)
         {
             k++;
-            sb.Append($"    <item id=\"imgf{k}\" href=\"images/{f}\" media-type=\"image/jpeg\"/>\n");
+            manifestItems.Add(new XElement(XhtmlNs + "item",
+                new XAttribute("id", $"imgf{k}"),
+                new XAttribute("href", $"images/{f}"),
+                new XAttribute("media-type", "image/jpeg")));
         }
-        sb.Append("  </manifest>\n");
 
-        var pageDir = opt.WritingMode == WritingMode.Vertical ? " page-progression-direction=\"rtl\"" : "";
-        sb.Append($"  <spine{pageDir}>\n");
-        if (hasCover) sb.Append("    <itemref idref=\"cover-page\"/>\n");
-        foreach (var s in spine) sb.Append(s).Append('\n');
-        sb.Append("  </spine>\n");
-        sb.Append("</package>\n");
-        return sb.ToString();
+        var manifestEl = new XElement(XhtmlNs + "manifest",
+            manifestItems);
+
+        var pageDir = opt.WritingMode == WritingMode.Vertical ? "rtl" : null;
+        var spineEl = new XElement(XhtmlNs + "spine",
+            pageDir is not null ? new XAttribute("page-progression-direction", pageDir) : null,
+            hasCover ? new XElement(XhtmlNs + "itemref",
+                new XAttribute("idref", "cover-page")) : null);
+
+        foreach (var s in spine)
+        {
+            var el = XElement.Parse(s);
+            if (el.Name.Namespace == XNamespace.None)
+                el.Name = XhtmlNs + el.Name.LocalName;
+            spineEl.Add(el);
+        }
+
+        var package = new XElement(XhtmlNs + "package",
+            new XAttribute("xmlns", XhtmlNs),
+            new XAttribute("version", "3.0"),
+            new XAttribute("unique-identifier", "bookid"),
+            new XAttribute(XNamespace.Xmlns + "dc", DcNs),
+            new XAttribute("lang", "ja"),
+            metadata,
+            manifestEl,
+            spineEl);
+
+        var doc = new XDocument(
+            new XDeclaration("1.0", "UTF-8", null),
+            package);
+        return doc.ToString(SaveOptions.DisableFormatting);
     }
 
-    private static string ContainerXml() =>
-        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
-        "<container version=\"1.0\" xmlns=\"urn:oasis:names:tc:opendocument:xmlns:container\">\n" +
-        "  <rootfiles>\n" +
-        "    <rootfile full-path=\"OEBPS/content.opf\" media-type=\"application/oebps-package+xml\"/>\n" +
-        "  </rootfiles>\n</container>\n";
+    /// <summary>META-INF/container.xml を生成する。</summary>
+    private static string ContainerXml()
+    {
+        var doc = new XDocument(
+            new XDeclaration("1.0", "UTF-8", null),
+            new XElement(ContainerNs + "container",
+                new XAttribute("version", "1.0"),
+                new XAttribute("xmlns", ContainerNs),
+                new XElement(ContainerNs + "rootfiles",
+                    new XElement(ContainerNs + "rootfile",
+                        new XAttribute("full-path", "OEBPS/content.opf"),
+                        new XAttribute("media-type", "application/oebps-package+xml")))));
+        return doc.ToString(SaveOptions.DisableFormatting);
+    }
+
+
 
     private static string StyleCss(EpubOptions opt)
     {

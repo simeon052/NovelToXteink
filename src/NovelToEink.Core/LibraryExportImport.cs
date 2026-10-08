@@ -1,4 +1,5 @@
 using System.IO;
+using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using NovelToEink.Xtc;
@@ -17,6 +18,37 @@ public static class LibraryExportImport
         Converters = { new JsonStringEnumConverter() },
     };
 
+    // ── 設定マッピング（唯一の定義場所） ──────────────────────────────
+    /// <summary>
+    /// AppSettings の各プロパティと JSON キーのマッピングを定義する。
+    /// この配列に追加すれば Serialize / Apply が自動的に追従する。
+    /// </summary>
+    private static readonly (string JsonKey, PropertyInfo Property, Type TargetType)[] SettingsMap =
+    [
+        ("Vertical",              typeof(AppSettings).GetProperty(nameof(AppSettings.Vertical))!,              typeof(bool)),
+        ("GrayscaleImages",       typeof(AppSettings).GetProperty(nameof(AppSettings.GrayscaleImages))!,       typeof(bool)),
+        ("IncludeInlineImages",   typeof(AppSettings).GetProperty(nameof(AppSettings.IncludeInlineImages))!,   typeof(bool)),
+        ("KeepRuby",              typeof(AppSettings).GetProperty(nameof(AppSettings.KeepRuby))!,              typeof(bool)),
+        ("EnableProofreading",    typeof(AppSettings).GetProperty(nameof(AppSettings.EnableProofreading))!,    typeof(bool)),
+        ("EpisodesPerFile",       typeof(AppSettings).GetProperty(nameof(AppSettings.EpisodesPerFile))!,       typeof(int)),
+        ("RequestDelayMs",        typeof(AppSettings).GetProperty(nameof(AppSettings.RequestDelayMs))!,        typeof(int)),
+        ("IsDarkMode",            typeof(AppSettings).GetProperty(nameof(AppSettings.IsDarkMode))!,            typeof(bool)),
+        // XTC 設定
+        ("GenerateXtc",           typeof(AppSettings).GetProperty(nameof(AppSettings.GenerateXtc))!,           typeof(bool)),
+        ("XtcDevice",             typeof(AppSettings).GetProperty(nameof(AppSettings.XtcDevice))!,             typeof(XteinkDevice)),
+        ("XtcFontFile",           typeof(AppSettings).GetProperty(nameof(AppSettings.XtcFontFile))!,           typeof(string)),
+        ("XtcFontSize",           typeof(AppSettings).GetProperty(nameof(AppSettings.XtcFontSize))!,           typeof(int)),
+        ("XtcTextThreshold",      typeof(AppSettings).GetProperty(nameof(AppSettings.XtcTextThreshold))!,      typeof(int)),
+        ("XtcPaddingTop",         typeof(AppSettings).GetProperty(nameof(AppSettings.XtcPaddingTop))!,         typeof(int)),
+        ("XtcPaddingBottom",      typeof(AppSettings).GetProperty(nameof(AppSettings.XtcPaddingBottom))!,      typeof(int)),
+        ("XtcPaddingLeft",        typeof(AppSettings).GetProperty(nameof(AppSettings.XtcPaddingLeft))!,        typeof(int)),
+        ("XtcPaddingRight",       typeof(AppSettings).GetProperty(nameof(AppSettings.XtcPaddingRight))!,       typeof(int)),
+    ];
+
+    /// <summary>SettingsMap のキー一覧（エクスポート順）。</summary>
+    internal static IReadOnlyList<string> SettingKeys => [.. SettingsMap.Select(s => s.JsonKey)];
+
+    // ── エクスポート構造体 ────────────────────────────────────────────
     /// <summary>エクスポートデータの構造体。</summary>
     public sealed class ExportData
     {
@@ -56,6 +88,7 @@ public static class LibraryExportImport
         public Dictionary<string, string?>? Settings { get; set; }
     }
 
+    // ── シリアライズ / デシリアライズ ────────────────────────────────
     /// <summary>ライブラリと設定をJSONファイルへエクスポートする。</summary>
     public static string SerializeExport(string appVersion, IReadOnlyList<LibraryEntry> entries, AppSettings settings)
     {
@@ -64,30 +97,25 @@ public static class LibraryExportImport
             ExportedAt = DateTimeOffset.Now.ToString("o"),
             AppVersion = appVersion,
             Library = entries,
-            Settings = new AppSettingsExport
-            {
-                Vertical = settings.Vertical,
-                GrayscaleImages = settings.GrayscaleImages,
-                IncludeInlineImages = settings.IncludeInlineImages,
-                KeepRuby = settings.KeepRuby,
-                EnableProofreading = settings.EnableProofreading,
-                EpisodesPerFile = settings.EpisodesPerFile,
-                RequestDelayMs = settings.RequestDelayMs,
-                IsDarkMode = settings.IsDarkMode,
-                // XTC 設定
-                GenerateXtc = settings.GenerateXtc,
-                XtcDevice = settings.XtcDevice.ToString(),
-                XtcFontFile = settings.XtcFontFile,
-                XtcFontSize = settings.XtcFontSize,
-                XtcTextThreshold = settings.XtcTextThreshold,
-                XtcPaddingTop = settings.XtcPaddingTop,
-                XtcPaddingBottom = settings.XtcPaddingBottom,
-                XtcPaddingLeft = settings.XtcPaddingLeft,
-                XtcPaddingRight = settings.XtcPaddingRight,
-            },
+            Settings = BuildExportSettings(settings),
         };
 
         return JsonSerializer.Serialize(exportData, JsonOpts);
+    }
+
+    /// <summary>AppSettings の値を AppSettingsExport にコピーする。</summary>
+    private static AppSettingsExport BuildExportSettings(AppSettings settings)
+    {
+        var export = new AppSettingsExport();
+        foreach (var (jsonKey, prop, _) in SettingsMap)
+        {
+            var value = prop.GetValue(settings);
+            if (jsonKey == "XtcDevice" && value is XteinkDevice dev)
+                typeof(AppSettingsExport).GetProperty(jsonKey)!.SetValue(export, dev.ToString());
+            else
+                typeof(AppSettingsExport).GetProperty(jsonKey)!.SetValue(export, value);
+        }
+        return export;
     }
 
     /// <summary>JSON文字列からライブラリと設定をデシリアライズする。</summary>
@@ -119,41 +147,34 @@ public static class LibraryExportImport
     /// <summary>エクスポートされた設定をAppSettingsに適用する。</summary>
     public static void ApplyImportedSettings(AppSettings settings, Dictionary<string, string?> importedSettings)
     {
-        if (importedSettings.TryGetValue("Vertical", out var v) && bool.TryParse(v, out var vertical))
-            settings.Vertical = vertical;
-        if (importedSettings.TryGetValue("GrayscaleImages", out var g) && bool.TryParse(g, out var grayscale))
-            settings.GrayscaleImages = grayscale;
-        if (importedSettings.TryGetValue("IncludeInlineImages", out var i) && bool.TryParse(i, out var inline))
-            settings.IncludeInlineImages = inline;
-        if (importedSettings.TryGetValue("KeepRuby", out var r) && bool.TryParse(r, out var ruby))
-            settings.KeepRuby = ruby;
-        if (importedSettings.TryGetValue("EnableProofreading", out var p) && bool.TryParse(p, out var proof))
-            settings.EnableProofreading = proof;
-        if (importedSettings.TryGetValue("EpisodesPerFile", out var e) && int.TryParse(e, out var episodes))
-            settings.EpisodesPerFile = episodes;
-        if (importedSettings.TryGetValue("RequestDelayMs", out var d) && int.TryParse(d, out var delay))
-            settings.RequestDelayMs = delay;
-        if (importedSettings.TryGetValue("IsDarkMode", out var dark) && bool.TryParse(dark, out var darkMode))
-            settings.IsDarkMode = darkMode;
+        foreach (var (jsonKey, prop, targetType) in SettingsMap)
+        {
+            if (!importedSettings.TryGetValue(jsonKey, out var raw))
+                continue;
 
-        // XTC 設定
-        if (importedSettings.TryGetValue("GenerateXtc", out var gx) && bool.TryParse(gx, out var genXtc))
-            settings.GenerateXtc = genXtc;
-        if (importedSettings.TryGetValue("XtcDevice", out var xd) && Enum.TryParse(xd, out XteinkDevice device))
-            settings.XtcDevice = device;
-        if (importedSettings.TryGetValue("XtcFontFile", out var xf))
-            settings.XtcFontFile = xf ?? "";
-        if (importedSettings.TryGetValue("XtcFontSize", out var xs) && int.TryParse(xs, out var fontSize))
-            settings.XtcFontSize = fontSize;
-        if (importedSettings.TryGetValue("XtcTextThreshold", out var xt) && int.TryParse(xt, out var textThreshold))
-            settings.XtcTextThreshold = textThreshold;
-        if (importedSettings.TryGetValue("XtcPaddingTop", out var xtp) && int.TryParse(xtp, out var paddingTop))
-            settings.XtcPaddingTop = paddingTop;
-        if (importedSettings.TryGetValue("XtcPaddingBottom", out var xbp) && int.TryParse(xbp, out var paddingBottom))
-            settings.XtcPaddingBottom = paddingBottom;
-        if (importedSettings.TryGetValue("XtcPaddingLeft", out var xlp) && int.TryParse(xlp, out var paddingLeft))
-            settings.XtcPaddingLeft = paddingLeft;
-        if (importedSettings.TryGetValue("XtcPaddingRight", out var xrp) && int.TryParse(xrp, out var paddingRight))
-            settings.XtcPaddingRight = paddingRight;
+            // enum 系（XtcDevice）
+            if (targetType.IsEnum && raw != null)
+            {
+                if (Enum.TryParse(targetType, raw, out var parsed))
+                    prop.SetValue(settings, parsed);
+            }
+            // bool
+            else if (targetType == typeof(bool) && raw != null)
+            {
+                if (bool.TryParse(raw, out var b))
+                    prop.SetValue(settings, b);
+            }
+            // int
+            else if (targetType == typeof(int) && raw != null)
+            {
+                if (int.TryParse(raw, out var i))
+                    prop.SetValue(settings, i);
+            }
+            // string
+            else if (targetType == typeof(string))
+            {
+                prop.SetValue(settings, raw);
+            }
+        }
     }
 }

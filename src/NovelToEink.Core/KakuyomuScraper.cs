@@ -106,9 +106,7 @@ public sealed partial class KakuyomuScraper(HttpFetcher fetcher) : INovelScraper
         doc.LoadHtml(html);
         var root = doc.DocumentNode;
 
-        var bodyNode =
-            root.SelectSingleNode(".//div[contains(@class,'widget-episodeBody')]")
-            ?? root.SelectSingleNode(".//div[contains(@class,'js-episode-body')]");
+        var bodyNode = HtmlHelper.FirstNode(root, ".//div[contains(@class,'widget-episodeBody')]", ".//div[contains(@class,'js-episode-body')]");
 
         string body;
         var images = new List<string>();

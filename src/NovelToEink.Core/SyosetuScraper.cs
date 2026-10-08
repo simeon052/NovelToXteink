@@ -41,15 +41,15 @@ public sealed partial class SyosetuScraper(HttpFetcher fetcher) : INovelScraper
         doc.LoadHtml(html);
         var root = doc.DocumentNode;
 
-        var title = TextOf(root, ".//h1[contains(@class,'p-novel__title')]", ".//p[contains(@class,'novel_title')]", ".//h1")
+        var title = HtmlHelper.TextOf(root, ".//h1[contains(@class,'p-novel__title')]", ".//p[contains(@class,'novel_title')]", ".//h1")
                     ?? "（無題）";
-        var author = TextOf(root, ".//div[contains(@class,'p-novel__author')]//a",
+        var author = HtmlHelper.TextOf(root, ".//div[contains(@class,'p-novel__author')]//a",
                                    ".//div[contains(@class,'p-novel__author')]",
                                    ".//div[@class='novel_writername']//a",
                                    ".//div[@class='novel_writername']") ?? "";
         author = author.Replace("作者：", "").Replace("作者:", "").Trim();
 
-        var desc = TextOf(root, ".//div[@id='novel_ex']", ".//div[contains(@class,'p-novel__summary')]") ?? "";
+        var desc = HtmlHelper.TextOf(root, ".//div[@id='novel_ex']", ".//div[contains(@class,'p-novel__summary')]") ?? "";
 
         var (completed, lastup) = await FetchNarouStatusAsync(host, ncode, ct).ConfigureAwait(false);
 
@@ -171,15 +171,15 @@ public sealed partial class SyosetuScraper(HttpFetcher fetcher) : INovelScraper
         var root = doc.DocumentNode;
 
         var bodyNode =
-            FirstNode(root,
+            HtmlHelper.FirstNode(root,
                 ".//div[contains(@class,'p-novel__text') and not(contains(@class,'preface')) and not(contains(@class,'afterword'))]",
                 ".//div[@id='novel_honbun']");
         var prefaceNode =
-            FirstNode(root,
+            HtmlHelper.FirstNode(root,
                 ".//div[contains(@class,'p-novel__text--preface')]",
                 ".//div[@id='novel_p']");
         var afterwordNode =
-            FirstNode(root,
+            HtmlHelper.FirstNode(root,
                 ".//div[contains(@class,'p-novel__text--afterword')]",
                 ".//div[@id='novel_a']");
 
@@ -221,21 +221,4 @@ public sealed partial class SyosetuScraper(HttpFetcher fetcher) : INovelScraper
         };
     }
 
-    private static HtmlNode? FirstNode(HtmlNode root, params string[] xpaths)
-    {
-        foreach (var xp in xpaths)
-        {
-            var n = root.SelectSingleNode(xp);
-            if (n != null) return n;
-        }
-        return null;
-    }
-
-    private static string? TextOf(HtmlNode root, params string[] xpaths)
-    {
-        var n = FirstNode(root, xpaths);
-        if (n == null) return null;
-        var t = HtmlEntity.DeEntitize(n.InnerText);
-        return string.IsNullOrWhiteSpace(t) ? null : t.Trim();
-    }
 }
