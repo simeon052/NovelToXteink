@@ -107,31 +107,29 @@ public class NameFormatterTests
     [InlineData("lpt2")] // 大文字小文字を区別しない
     public void Sanitize_WindowsReservedNames_GetPrefix(string input)
     {
-        // PR #9 で予約名対応を追加予定。現時点では master の振る舞い（未対応）を確認する
-        Assert.Equal(input, NameFormatter.Sanitize(input));
+        Assert.StartsWith("_", NameFormatter.Sanitize(input));
     }
 
     [Theory]
-    [InlineData("title.", "title.")]
-    [InlineData("title.  ", "title.")]
-    [InlineData("title...", "title...")]
+    [InlineData("title.", "title")]
+    [InlineData("title.  ", "title")]
+    [InlineData("title...", "title")]
     public void Sanitize_TrailingDotsAndSpacesAreTrimmed(string input, string expected)
     {
-        // PR #9 で末尾ドット・空白対応を追加予定。現時点では master の振る舞い（未対応）を確認する
         Assert.Equal(expected, NameFormatter.Sanitize(input));
     }
 
     [Fact]
     public void Sanitize_ReservedNameWithTrailingDot_IsHandledCorrectly()
     {
-        // PR #9 で予約名対応を追加予定。現時点では master の振る舞い（未対応）を確認する
-        Assert.Equal("CON.", NameFormatter.Sanitize("CON."));
+        // CON. → dot trimmed first → CON → reserved prefix → _CON
+        Assert.Equal("_CON", NameFormatter.Sanitize("CON."));
     }
 
     [Fact]
     public void Format_ReservedTitle_CannotEscapeTheOutputFolder()
     {
         var name = NameFormatter.Format("{title}", "CON", "a", 1, 1);
-        Assert.Equal("CON", name);
+        Assert.Equal("_CON", name);
     }
 }
