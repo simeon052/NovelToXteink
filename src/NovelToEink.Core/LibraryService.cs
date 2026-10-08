@@ -116,16 +116,38 @@ public sealed class LibraryService
             var newPath = Path.Combine(Settings.OutputFolder, newName);
             if (!string.Equals(old, newPath, StringComparison.OrdinalIgnoreCase) && File.Exists(old))
             {
+                string? tempPath = null;
                 try
                 {
-                    if (File.Exists(newPath)) File.Delete(newPath);
+                    // 既存のターゲットがある場合、一時名へ退避してからMoveする。
+                    // Move失敗時に削除したファイルが戻らない問題を回避する。
+                    if (File.Exists(newPath))
+                    {
+                        tempPath = newPath + ".renaming.tmp";
+                        File.Move(newPath, tempPath);
+                    }
+
                     File.Move(old, newPath);
                 }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
                 {
+                    // 退避ファイルは戻す
+                    if (tempPath != null && File.Exists(tempPath))
+                    {
+                        try { File.Move(tempPath, newPath); }
+                        catch { /* 戻せなくてもログに出さない——元に戻ろうとするならMoveしなかった方が安全 */ }
+                    }
+
                     // 名前を変えられなかった（他で開かれている等）。元のファイル名のまま続ける。
                     CoreLog.Warn($"ファイル名を変更できません: {old} -> {newPath}", ex);
                     newPath = old;
+                }
+                finally
+                {
+                    // 一時ファイルを削除
+                    if (tempPath != null && File.Exists(tempPath))
+                        try { File.Delete(tempPath); }
+                        catch { /* クリーンアップ失敗は許容 */ }
                 }
             }
             newPaths.Add(File.Exists(newPath) ? newPath : old);
