@@ -84,4 +84,41 @@ public class NameFormatterTests
         Assert.DoesNotContain('/', name);
         Assert.DoesNotContain('\\', name);
     }
+
+    [Theory]
+    [InlineData("CON")]
+    [InlineData("PRN")]
+    [InlineData("AUX")]
+    [InlineData("NUL")]
+    [InlineData("COM1")]
+    [InlineData("COM9")]
+    [InlineData("LPT1")]
+    [InlineData("lpt2")] // 大文字小文字を区別しない
+    public void Sanitize_WindowsReservedNames_GetPrefix(string input)
+    {
+        Assert.StartsWith("_", NameFormatter.Sanitize(input));
+    }
+
+    [Theory]
+    [InlineData("title.", "title")]
+    [InlineData("title.  ", "title")]
+    [InlineData("title...", "title")]
+    public void Sanitize_TrailingDotsAndSpacesAreTrimmed(string input, string expected)
+    {
+        Assert.Equal(expected, NameFormatter.Sanitize(input));
+    }
+
+    [Fact]
+    public void Sanitize_ReservedNameWithTrailingDot_IsHandledCorrectly()
+    {
+        // CON. → dot trimmed first → CON → reserved prefix → _CON
+        Assert.Equal("_CON", NameFormatter.Sanitize("CON."));
+    }
+
+    [Fact]
+    public void Format_ReservedTitle_CannotEscapeTheOutputFolder()
+    {
+        var name = NameFormatter.Format("{title}", "CON", "a", 1, 1);
+        Assert.Equal("_CON", name);
+    }
 }
