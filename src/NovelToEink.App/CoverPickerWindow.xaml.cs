@@ -76,10 +76,12 @@ public partial class CoverPickerWindow : Window
         {
             genCover = ImageProcessor.GenerateTextCover(novel.Metadata.Title, novel.Metadata.Author, options);
         }
-        catch
+        catch (Exception ex)
         {
+            // フォント不備などで文字表紙を作れない場合は、簡易表紙で代える
+            CoreLog.Warn("文字で生成する表紙を作れません", ex);
             try { genCover = ImageProcessor.GenerateMinimalCover(); }
-            catch { }
+            catch (Exception ex2) { CoreLog.Error("簡易表紙も作れません", ex2); }
         }
         if (genCover != null)
             Covers.Add(CoverCandidate.FromImage(genCover, "文字で生成", options));
@@ -181,7 +183,11 @@ public partial class CoverPickerWindow : Window
         {
             return AddImageFromBytes(File.ReadAllBytes(filePath), Path.GetFileName(filePath));
         }
-        catch { return false; }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            CoreLog.Warn($"画像ファイルを読めません: {filePath}", ex);
+            return false;
+        }
     }
 
     private bool AddImageFromBytes(byte[] bytes, string label)

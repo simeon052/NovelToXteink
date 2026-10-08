@@ -19,7 +19,8 @@ public static class CoverCandidateCache
             var dir = GetDirectory(outputFolder, site, workId);
             return Directory.Exists(dir) ? Directory.EnumerateFiles(dir, "*.img").Count() : 0;
         }
-        catch { return 0; }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        { CoreLog.Ignored("表紙候補の件数を数えられない", ex); return 0; }
     }
 
     /// <summary>候補を保存する。既存のキャッシュは置き換える。</summary>
@@ -41,7 +42,8 @@ public static class CoverCandidateCache
                 File.WriteAllText(Path.Combine(dir, $"{index:D2}.url"), image.SourceUrl ?? "");
                 index++;
             }
-            catch { /* キャッシュなので失敗しても致命的ではない */ }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            { CoreLog.Ignored("表紙候補のキャッシュを書けない", ex); /* キャッシュなので失敗しても致命的ではない */ }
         }
     }
 
@@ -62,7 +64,8 @@ public static class CoverCandidateCache
                 var image = ImageProcessor.TryLoad(data, string.IsNullOrWhiteSpace(sourceUrl) ? path : sourceUrl);
                 if (image != null) results.Add(image);
             }
-            catch { /* 壊れたキャッシュは飛ばす */ }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            { CoreLog.Ignored($"表紙候補のキャッシュを読めない（飛ばす）: {path}", ex); }
         }
 
         return results;
@@ -72,11 +75,15 @@ public static class CoverCandidateCache
     public static void Clear(string outputFolder, NovelSite site, string workId)
     {
         var dir = GetDirectory(outputFolder, site, workId);
-        try { if (Directory.Exists(dir)) Directory.Delete(dir, recursive: true); } catch { }
+        try { if (Directory.Exists(dir)) Directory.Delete(dir, recursive: true); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        { CoreLog.Ignored($"表紙候補フォルダを消せない: {dir}", ex); }
     }
 
     private static void TryDelete(string path)
     {
-        try { File.Delete(path); } catch { }
+        try { File.Delete(path); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        { CoreLog.Ignored($"表紙候補ファイルを消せない: {path}", ex); }
     }
 }

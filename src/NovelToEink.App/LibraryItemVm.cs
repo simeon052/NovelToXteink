@@ -138,6 +138,10 @@ public sealed class LibraryItemVm : ViewModelBase
             }
             else Thumbnail = null;
         }
-        catch { Thumbnail = null; }
+        catch (Exception ex) when (ex is IOException or NotSupportedException or UnauthorizedAccessException or FileFormatException)
+        {
+            CoreLog.Ignored($"サムネイルを読めない: {Entry.CoverImagePath}", ex);
+            Thumbnail = null;
+        }
     }
 }

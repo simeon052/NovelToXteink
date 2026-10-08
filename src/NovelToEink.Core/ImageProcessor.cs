@@ -33,8 +33,10 @@ public static class ImageProcessor
                 IsOfficialCover = isOfficialCover,
             };
         }
-        catch
+        catch (Exception ex)
         {
+            // 画像として読めないデータ（HTML が返ってきた等）。呼び出し側は null で「画像なし」として扱う
+            CoreLog.Ignored($"画像として読めない: {url}", ex);
             return null;
         }
     }
@@ -52,7 +54,7 @@ public static class ImageProcessor
         if (isCover && part > 0 && partCount > 1)
         {
             try { StampPartLabel(image, part, partCount); }
-            catch { /* フォント未使用環境などはスタンプを省略 */ }
+            catch (Exception ex) { CoreLog.Ignored("分冊ラベルを描けない（スタンプを省略）", ex); }
         }
         using var ms = new MemoryStream();
         image.SaveAsJpeg(ms, new JpegEncoder { Quality = Math.Clamp(opt.JpegQuality, 1, 100) });

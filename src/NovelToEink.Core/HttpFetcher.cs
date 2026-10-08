@@ -106,7 +106,7 @@ public sealed class HttpFetcher : IDisposable
         if (!string.IsNullOrWhiteSpace(charset))
         {
             try { return System.Text.Encoding.GetEncoding(charset.Trim('"')); }
-            catch { /* fall through */ }
+            catch (ArgumentException ex) { CoreLog.Ignored($"不明な文字コード '{charset}'（UTF-8 にする）", ex); }
         }
         return System.Text.Encoding.UTF8;
     }

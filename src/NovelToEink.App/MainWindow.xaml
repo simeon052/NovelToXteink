@@ -65,37 +65,37 @@
         <Border DockPanel.Dock="Top" Style="{StaticResource Card}" Margin="0,0,0,12" Padding="14,10">
             <StackPanel>
                 <WrapPanel IsEnabled="{Binding IsNotBusy}">
-                    <CheckBox Content="縦書き" IsChecked="{Binding Vertical}" Margin="0,0,16,0"/>
-                    <CheckBox Content="挿絵を含める" IsChecked="{Binding IncludeInlineImages}" Margin="0,0,16,0"/>
-                    <CheckBox Content="グレースケール" IsChecked="{Binding GrayscaleImages}" Margin="0,0,16,0"/>
-                    <CheckBox Content="ルビを残す" IsChecked="{Binding KeepRuby}" Margin="0,0,16,0"/>
-                    <CheckBox Content="表紙を自動選択" IsChecked="{Binding AutoCover}" Margin="0,0,16,0"
+                    <CheckBox Content="縦書き" IsChecked="{Binding EpubSettings.Vertical}" Margin="0,0,16,0"/>
+                    <CheckBox Content="挿絵を含める" IsChecked="{Binding EpubSettings.IncludeInlineImages}" Margin="0,0,16,0"/>
+                    <CheckBox Content="グレースケール" IsChecked="{Binding EpubSettings.GrayscaleImages}" Margin="0,0,16,0"/>
+                    <CheckBox Content="ルビを残す" IsChecked="{Binding EpubSettings.KeepRuby}" Margin="0,0,16,0"/>
+                    <CheckBox Content="表紙を自動選択" IsChecked="{Binding EpubSettings.AutoCover}" Margin="0,0,16,0"
                               ToolTip="追加時に表紙選択で止まらず、公式表紙（無ければ文字生成表紙）を暫定で使います。候補は裏で集め、あとから「表紙」ボタンで差し替えられます。"/>
-                    <CheckBox Content="テキスト校正" IsChecked="{Binding EnableProofreading}" Margin="0,0,6,0"
+                    <CheckBox Content="テキスト校正" IsChecked="{Binding EpubSettings.EnableProofreading}" Margin="0,0,6,0"
                               ToolTip="narou.rb互換の校正ルールを適用します。ルールは proofreading.json で編集できます。"/>
                     <Button Style="{StaticResource Ghost}" Content="ルール編集" Padding="8,3" FontSize="11" Margin="0,0,24,0"
                             Command="{Binding OpenProofreadingRulesCommand}"
                             ToolTip="校正ルールファイル (proofreading.json) をテキストエディタで開きます。"/>
                     <TextBlock Text="分割(話/ファイル):" VerticalAlignment="Center" Foreground="{DynamicResource Muted}" Margin="0,0,4,0"/>
-                    <TextBox Style="{StaticResource Field}" Width="64" Text="{Binding EpisodesPerFile}" Margin="0,0,24,0"
+                    <TextBox Style="{StaticResource Field}" Width="64" Text="{Binding EpubSettings.EpisodesPerFile}" Margin="0,0,24,0"
                              ToolTip="この話数ごとにEPUBを分割します（既定200）。"/>
                     <TextBlock Text="間隔(ms):" VerticalAlignment="Center" Foreground="{DynamicResource Muted}" Margin="0,0,4,0"/>
-                    <TextBox Style="{StaticResource Field}" Width="64" Text="{Binding RequestDelayMs}"/>
+                    <TextBox Style="{StaticResource Field}" Width="64" Text="{Binding EpubSettings.RequestDelayMs}"/>
                 </WrapPanel>
 
                 <Separator Margin="0,10" Background="{DynamicResource Border}"/>
 
                 <!-- XTC 出力設定 -->
                 <WrapPanel IsEnabled="{Binding IsNotBusy}">
-                    <CheckBox Content="XTCも生成" IsChecked="{Binding GenerateXtc}" Margin="0,0,16,0"
+                    <CheckBox Content="XTCも生成" IsChecked="{Binding XtcSettings.GenerateXtc}" Margin="0,0,16,0"
                               VerticalAlignment="Center"
                               ToolTip="EPUB生成後に、Xteink実機で読める1bitモノクロのXTCを書き出します。"/>
 
                     <TextBlock Text="端末:" VerticalAlignment="Center"
                                Foreground="{DynamicResource Muted}" Margin="0,0,4,0"/>
                     <ComboBox Width="180" Margin="0,0,8,0" VerticalAlignment="Center"
-                              ItemsSource="{Binding XtcDevices}"
-                              SelectedItem="{Binding XtcDevice}"
+                              ItemsSource="{Binding XtcSettings.XtcDevices}"
+                              SelectedItem="{Binding XtcSettings.XtcDevice}"
                               ToolTip="出力解像度が決まります。X3: 528×792 / X4 Pro: 480×800">
                         <ComboBox.ItemTemplate>
                             <DataTemplate>
@@ -103,14 +103,14 @@
                             </DataTemplate>
                         </ComboBox.ItemTemplate>
                     </ComboBox>
-                    <TextBlock Text="{Binding XtcResolutionText}" VerticalAlignment="Center"
+                    <TextBlock Text="{Binding XtcSettings.XtcResolutionText}" VerticalAlignment="Center"
                                Foreground="{DynamicResource Muted}" FontSize="11" Margin="0,0,20,0"/>
 
                     <TextBlock Text="フォント:" VerticalAlignment="Center"
                                Foreground="{DynamicResource Muted}" Margin="0,0,4,0"/>
                     <ComboBox Width="200" Margin="0,0,8,0" VerticalAlignment="Center"
-                              ItemsSource="{Binding XtcFonts}"
-                              SelectedItem="{Binding XtcFont}"
+                              ItemsSource="{Binding XtcSettings.XtcFonts}"
+                              SelectedItem="{Binding XtcSettings.XtcFont}"
                               DisplayMemberPath="DisplayName"
                               ToolTip="縦書き本文の描画に使うフォント。未選択なら自動で明朝系を選びます。"/>
                     <Button Style="{StaticResource Ghost}" Content="フォント参照" Padding="8,3" FontSize="11" Margin="0,0,20,0"
@@ -123,7 +123,7 @@
                                    Foreground="{DynamicResource Muted}" Margin="0,0,4,0"/>
                         <TextBox Style="{StaticResource Field}" Width="52" FontSize="12" Padding="6,3"
                                  VerticalAlignment="Center"
-                                 Text="{Binding XtcFontSize, UpdateSourceTrigger=LostFocus}"
+                                 Text="{Binding XtcSettings.XtcFontSize, UpdateSourceTrigger=LostFocus}"
                                  ToolTip="本文の文字サイズ（ピクセル）。8〜200。既定 36。&#10;行送りとルビの大きさはこの値から自動で決まります。"/>
                     </StackPanel>
 
@@ -132,7 +132,7 @@
                                    Foreground="{DynamicResource Muted}" Margin="0,0,4,0"/>
                         <TextBox Style="{StaticResource Field}" Width="52" FontSize="12" Padding="6,3"
                                  VerticalAlignment="Center"
-                                 Text="{Binding XtcTextThreshold, UpdateSourceTrigger=LostFocus}"
+                                 Text="{Binding XtcSettings.XtcTextThreshold, UpdateSourceTrigger=LostFocus}"
                                  ToolTip="2値化のしきい値。大きいほど線が太くなります。128〜250、既定 200。&#10;細いフォントで文字が薄いときに上げてください。"/>
                     </StackPanel>
 
@@ -143,25 +143,25 @@
                                    Foreground="{DynamicResource Muted}" Margin="0,0,3,0"/>
                         <TextBox Style="{StaticResource Field}" Width="42" FontSize="12" Padding="5,3"
                                  VerticalAlignment="Center" Margin="0,0,8,0"
-                                 Text="{Binding XtcPaddingTop, UpdateSourceTrigger=LostFocus}"
+                                 Text="{Binding XtcSettings.XtcPaddingTop, UpdateSourceTrigger=LostFocus}"
                                  ToolTip="上の余白（ピクセル）。既定の余白に加算されます。"/>
                         <TextBlock Text="下" VerticalAlignment="Center"
                                    Foreground="{DynamicResource Muted}" Margin="0,0,3,0"/>
                         <TextBox Style="{StaticResource Field}" Width="42" FontSize="12" Padding="5,3"
                                  VerticalAlignment="Center" Margin="0,0,8,0"
-                                 Text="{Binding XtcPaddingBottom, UpdateSourceTrigger=LostFocus}"
+                                 Text="{Binding XtcSettings.XtcPaddingBottom, UpdateSourceTrigger=LostFocus}"
                                  ToolTip="下の余白（ピクセル）。既定の余白に加算されます。"/>
                         <TextBlock Text="左" VerticalAlignment="Center"
                                    Foreground="{DynamicResource Muted}" Margin="0,0,3,0"/>
                         <TextBox Style="{StaticResource Field}" Width="42" FontSize="12" Padding="5,3"
                                  VerticalAlignment="Center" Margin="0,0,8,0"
-                                 Text="{Binding XtcPaddingLeft, UpdateSourceTrigger=LostFocus}"
+                                 Text="{Binding XtcSettings.XtcPaddingLeft, UpdateSourceTrigger=LostFocus}"
                                  ToolTip="左の余白（ピクセル）。既定の余白に加算されます。"/>
                         <TextBlock Text="右" VerticalAlignment="Center"
                                    Foreground="{DynamicResource Muted}" Margin="0,0,3,0"/>
                         <TextBox Style="{StaticResource Field}" Width="42" FontSize="12" Padding="5,3"
                                  VerticalAlignment="Center"
-                                 Text="{Binding XtcPaddingRight, UpdateSourceTrigger=LostFocus}"
+                                 Text="{Binding XtcSettings.XtcPaddingRight, UpdateSourceTrigger=LostFocus}"
                                  ToolTip="右の余白（ピクセル）。既定の余白に加算されます。"/>
                     </StackPanel>
 

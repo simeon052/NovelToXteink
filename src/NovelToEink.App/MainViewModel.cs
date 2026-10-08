@@ -18,12 +18,25 @@ public sealed class MainViewModel : ViewModelBase
     private enum SortKey { Converted, SiteUpdated, Title }
     private SortKey _sortKey = SortKey.Converted;
 
+    /// <summary>XTC 出力設定のサブビューモデル。</summary>
+    public XtcSettingsViewModel XtcSettings { get; }
+
+    /// <summary>EPUB 生成設定のサブビューモデル。</summary>
+    public EpubSettingsViewModel EpubSettings { get; }
+
     public ObservableCollection<LibraryItemVm> Items { get; } = [];
 
     public MainViewModel()
     {
         _settings = AppSettings.Load();
         _service = new LibraryService(_settings);
+        
+        // XTC 設定サブビューモデルを初期化
+        XtcSettings = new XtcSettingsViewModel(_settings);
+        
+        // EPUB 設定サブビューモデルを初期化
+        EpubSettings = new EpubSettingsViewModel(_settings);
+        
         ApplyTheme(_settings.IsDarkMode);
         Items.CollectionChanged += (_, _) => OnChanged(nameof(PickPendingCoversLabel));
         ReloadItems();
@@ -65,195 +78,6 @@ public sealed class MainViewModel : ViewModelBase
     public bool HasInputs => ParseInputs(_urlsText).Count > 0;
 
     public string OutputFolder => _settings.OutputFolder;
-
-    public bool Vertical
-    {
-        get => _settings.Vertical;
-        set { if (_settings.Vertical != value) { _settings.Vertical = value; _settings.Save(); OnChanged(); } }
-    }
-    public bool GrayscaleImages
-    {
-        get => _settings.GrayscaleImages;
-        set { if (_settings.GrayscaleImages != value) { _settings.GrayscaleImages = value; _settings.Save(); OnChanged(); } }
-    }
-    public bool IncludeInlineImages
-    {
-        get => _settings.IncludeInlineImages;
-        set { if (_settings.IncludeInlineImages != value) { _settings.IncludeInlineImages = value; _settings.Save(); OnChanged(); } }
-    }
-    public bool KeepRuby
-    {
-        get => _settings.KeepRuby;
-        set { if (_settings.KeepRuby != value) { _settings.KeepRuby = value; _settings.Save(); OnChanged(); } }
-    }
-    public int RequestDelayMs
-    {
-        get => _settings.RequestDelayMs;
-        set { if (_settings.RequestDelayMs != value) { _settings.RequestDelayMs = value; _settings.Save(); OnChanged(); } }
-    }
-    public int EpisodesPerFile
-    {
-        get => _settings.EpisodesPerFile;
-        set { if (_settings.EpisodesPerFile != value) { _settings.EpisodesPerFile = value; _settings.Save(); OnChanged(); } }
-    }
-    public bool EnableProofreading
-    {
-        get => _settings.EnableProofreading;
-        set { if (_settings.EnableProofreading != value) { _settings.EnableProofreading = value; _settings.Save(); OnChanged(); } }
-    }
-
-    /// <summary>追加時に表紙選択で止まらず、暫定表紙で先へ進むか。</summary>
-    public bool AutoCover
-    {
-        get => _settings.AutoCover;
-        set { if (_settings.AutoCover != value) { _settings.AutoCover = value; _settings.Save(); OnChanged(); } }
-    }
-
-    // ---- XTC 出力 ----
-
-    /// <summary>EPUB 生成後に XTC も作るか。</summary>
-    public bool GenerateXtc
-    {
-        get => _settings.GenerateXtc;
-        set { if (_settings.GenerateXtc != value) { _settings.GenerateXtc = value; _settings.Save(); OnChanged(); } }
-    }
-
-    /// <summary>選択できる端末の一覧。</summary>
-    public IReadOnlyList<XteinkDevice> XtcDevices { get; } = [XteinkDevice.X3, XteinkDevice.X4Pro];
-
-    /// <summary>XTC の出力対象端末。</summary>
-    public XteinkDevice XtcDevice
-    {
-        get => _settings.XtcDevice;
-        set
-        {
-            if (_settings.XtcDevice == value) return;
-            _settings.XtcDevice = value;
-            _settings.Save();
-            OnChanged();
-            OnChanged(nameof(XtcResolutionText));
-        }
-    }
-
-    /// <summary>選択中の端末の解像度表示。</summary>
-    public string XtcResolutionText
-    {
-        get
-        {
-            var (w, h) = _settings.XtcDevice.GetResolution();
-            return $"{w} × {h} px";
-        }
-    }
-
-    // フォント探索はファイルシステムを走査するので一度だけ行う。
-    private readonly List<XtcFont> _fonts = [.. FontFinder.Enumerate()];
-
-    /// <summary>描画に使えるフォントの一覧（検出したもの + ユーザーが指定したもの）。</summary>
-    public IReadOnlyList<XtcFont> XtcFonts => _fonts;
-
-    /// <summary>XTC 描画に使うフォント。null なら自動選択。</summary>
-    public XtcFont? XtcFont
-    {
-        // 未設定のときは FontFinder が実際に選ぶフォントを見せる。
-        get => _fonts.FirstOrDefault(f =>
-                   string.Equals(f.FilePath, _settings.XtcFontFile, StringComparison.OrdinalIgnoreCase))
-               ?? _fonts.FirstOrDefault();
-        set
-        {
-            var path = value?.FilePath ?? "";
-            if (string.Equals(_settings.XtcFontFile, path, StringComparison.OrdinalIgnoreCase)) return;
-            _settings.XtcFontFile = path;
-            _settings.Save();
-            OnChanged();
-        }
-    }
-
-    /// <summary>本文の文字サイズ（px）。8〜200 に丸める。</summary>
-    public int XtcFontSize
-    {
-        get => _settings.XtcFontSize;
-        set
-        {
-            var v = Math.Clamp(value, 8, 200);
-            if (_settings.XtcFontSize == v) return;
-            _settings.XtcFontSize = v;
-            _settings.Save();
-            OnChanged();
-        }
-    }
-
-    /// <summary>
-    /// 本文の 2 値化しきい値。大きいほど線が太くなる。128〜250 に丸める。
-    /// 極端な値にすると全面白／全面黒になるため範囲を制限している。
-    /// </summary>
-    public int XtcTextThreshold
-    {
-        get => _settings.XtcTextThreshold;
-        set
-        {
-            var v = Math.Clamp(value, 128, 250);
-            if (_settings.XtcTextThreshold == v) return;
-            _settings.XtcTextThreshold = v;
-            _settings.Save();
-            OnChanged();
-        }
-    }
-
-    /// <summary>上余白（px）。</summary>
-    public int XtcPaddingTop
-    {
-        get => _settings.XtcPaddingTop;
-        set
-        {
-            var v = Math.Max(0, value);
-            if (_settings.XtcPaddingTop == v) return;
-            _settings.XtcPaddingTop = v;
-            _settings.Save();
-            OnChanged();
-        }
-    }
-
-    /// <summary>下余白（px）。</summary>
-    public int XtcPaddingBottom
-    {
-        get => _settings.XtcPaddingBottom;
-        set
-        {
-            var v = Math.Max(0, value);
-            if (_settings.XtcPaddingBottom == v) return;
-            _settings.XtcPaddingBottom = v;
-            _settings.Save();
-            OnChanged();
-        }
-    }
-
-    /// <summary>左余白（px）。</summary>
-    public int XtcPaddingLeft
-    {
-        get => _settings.XtcPaddingLeft;
-        set
-        {
-            var v = Math.Max(0, value);
-            if (_settings.XtcPaddingLeft == v) return;
-            _settings.XtcPaddingLeft = v;
-            _settings.Save();
-            OnChanged();
-        }
-    }
-
-    /// <summary>右余白（px）。</summary>
-    public int XtcPaddingRight
-    {
-        get => _settings.XtcPaddingRight;
-        set
-        {
-            var v = Math.Max(0, value);
-            if (_settings.XtcPaddingRight == v) return;
-            _settings.XtcPaddingRight = v;
-            _settings.Save();
-            OnChanged();
-        }
-    }
 
     // ---- ダークモード ----
     public bool IsDarkMode
@@ -331,7 +155,7 @@ public sealed class MainViewModel : ViewModelBase
     public AsyncRelayCommand ConvertAllXtcCommand { get; }
     public RelayCommand ChooseXtcFontCommand { get; }
 
-    private EpubOptions Options => _settings.ToEpubOptions();
+    private EpubOptions Options => EpubSettings.ToEpubOptions();
 
     private Progress<DownloadProgress> MakeDlProgress() => new(p =>
     {
@@ -454,7 +278,7 @@ public sealed class MainViewModel : ViewModelBase
                     item?.SetCoverCandidateCount(images.Count);
                 });
             }
-            catch { /* 候補が集まらなくても本処理には影響しない */ }
+            catch (Exception ex) { CoreLog.Ignored($"表紙候補を集められない（本処理には影響しない）: {workId}", ex); }
         });
     }
 
@@ -475,7 +299,12 @@ public sealed class MainViewModel : ViewModelBase
                     if (has) updates++;
                 }
                 catch (OperationCanceledException) { throw; }
-                catch { item.Entry.Status = UpdateStatus.Error; }
+                catch (Exception ex)
+                {
+                    // 更新チェックの失敗。作品ごとの状態を Error にし、原因（通信断・サイト構造の変更など）を残す
+                    item.Entry.Status = UpdateStatus.Error;
+                    CoreLog.Warn($"更新チェックに失敗: {item.Entry.Title}", ex);
+                }
                 finally { item.IsBusy = false; item.Refresh(); }
             }
             StatusText = updates > 0
@@ -621,27 +450,7 @@ public sealed class MainViewModel : ViewModelBase
     }
 
     /// <summary>一覧にないフォントファイルをダイアログで選ぶ。</summary>
-    private void ChooseXtcFont()
-    {
-        var dlg = new OpenFileDialog
-        {
-            Title = "XTC描画に使うフォントを選択",
-            Filter = "フォントファイル (*.ttf;*.ttc;*.otf;*.otc)|*.ttf;*.ttc;*.otf;*.otc|すべてのファイル (*.*)|*.*",
-            InitialDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "Fonts"),
-        };
-        if (dlg.ShowDialog() != true) return;
-
-        _settings.XtcFontFile = dlg.FileName;
-        _settings.Save();
-
-        // 一覧にない場合は選択肢として足しておく。
-        if (!_fonts.Any(f => string.Equals(f.FilePath, dlg.FileName, StringComparison.OrdinalIgnoreCase)))
-            _fonts.Add(new XtcFont(Path.GetFileNameWithoutExtension(dlg.FileName), dlg.FileName, "指定"));
-
-        OnChanged(nameof(XtcFonts));
-        OnChanged(nameof(XtcFont));
-        StatusText = $"XTCフォント: {Path.GetFileName(dlg.FileName)}";
-    }
+    private void ChooseXtcFont() => XtcSettings.ChooseXtcFont(s => { if (s != null) StatusText = s; });
 
     // ---- XTC 変換 ----
 
@@ -1053,14 +862,12 @@ public sealed class MainViewModel : ViewModelBase
                     {
                         LibraryService.ApplyImportedSettings(_settings, importedSettings);
                         _settings.Save();
+                        
+                        // 設定が丸ごと差し替わったので、各サブビューモデルの全項目を再読み込みさせる
+                        EpubSettings.NotifyAllChanged();
+                        XtcSettings.NotifyAllChanged();
+                        
                         ApplyTheme(_settings.IsDarkMode);
-                        OnChanged(nameof(Vertical));
-                        OnChanged(nameof(GrayscaleImages));
-                        OnChanged(nameof(IncludeInlineImages));
-                        OnChanged(nameof(KeepRuby));
-                        OnChanged(nameof(EnableProofreading));
-                        OnChanged(nameof(EpisodesPerFile));
-                        OnChanged(nameof(RequestDelayMs));
                         OnChanged(nameof(IsDarkMode));
                         OnChanged(nameof(DarkModeToggleLabel));
                     }

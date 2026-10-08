@@ -121,7 +121,12 @@ public sealed class LibraryService
                     if (File.Exists(newPath)) File.Delete(newPath);
                     File.Move(old, newPath);
                 }
-                catch { newPath = old; }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    // 名前を変えられなかった（他で開かれている等）。元のファイル名のまま続ける。
+                    CoreLog.Warn($"ファイル名を変更できません: {old} -> {newPath}", ex);
+                    newPath = old;
+                }
             }
             newPaths.Add(File.Exists(newPath) ? newPath : old);
         }
@@ -198,14 +203,19 @@ public sealed class LibraryService
         Persist();
     }
 
+    // 削除に失敗してもライブラリからの除去は進める（ファイルが他で開かれている等）。残骸はログに残す。
     private static void TryDelete(string path)
     {
-        try { if (File.Exists(path)) File.Delete(path); } catch { /* ignore */ }
+        try { if (File.Exists(path)) File.Delete(path); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        { CoreLog.Warn($"ファイルを削除できません: {path}", ex); }
     }
 
     private static void TryDeleteDirectory(string path)
     {
-        try { if (Directory.Exists(path)) Directory.Delete(path, recursive: true); } catch { }
+        try { if (Directory.Exists(path)) Directory.Delete(path, recursive: true); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        { CoreLog.Warn($"フォルダを削除できません: {path}", ex); }
     }
 
     private static bool SameWork(LibraryEntry e, NovelMetadata m) => e.Site == m.Site && e.WorkId == m.WorkId;
@@ -259,80 +269,19 @@ public sealed class LibraryService
     public void ExportLibrary(string filePath)
     {
         var appVersion = typeof(LibraryService).Assembly.GetName().Version?.ToString() ?? "unknown";
-        var exportData = new
-        {
-            ExportedAt = DateTimeOffset.Now,
-            AppVersion = appVersion,
-            Library = Entries,
-            Settings = new
-            {
-                Settings.Vertical,
-                Settings.GrayscaleImages,
-                Settings.IncludeInlineImages,
-                Settings.KeepRuby,
-                Settings.EnableProofreading,
-                Settings.EpisodesPerFile,
-                Settings.RequestDelayMs,
-                Settings.IsDarkMode,
-            }
-        };
-
-        var options = new JsonSerializerOptions
-        {
-            WriteIndented = true,
-            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-            Converters = { new JsonStringEnumConverter() },
-        };
-        var json = JsonSerializer.Serialize(exportData, options);
+        var json = LibraryExportImport.SerializeExport(appVersion, Entries, Settings);
         File.WriteAllText(filePath, json);
     }
 
     /// <summary>エクスポートしたJSONからライブラリと設定をインポートする。</summary>
-    public (List<LibraryEntry> Library, Dictionary<string, object> Settings) ImportLibrary(string filePath)
+    public (List<LibraryEntry> Library, Dictionary<string, string?> Settings) ImportLibrary(string filePath)
     {
         var json = File.ReadAllText(filePath);
-        using var doc = JsonDocument.Parse(json);
-        var root = doc.RootElement;
-
-        if (root.ValueKind != JsonValueKind.Object)
-            throw new InvalidDataException("JSONのルート要素がオブジェクトではありません。");
-
-        if (!root.TryGetProperty("Library", out var libraryElement) || libraryElement.ValueKind != JsonValueKind.Array)
-            throw new InvalidDataException("Library 配列が見つからないか、形式が不正です。");
-        if (!root.TryGetProperty("Settings", out var settingsObj) || settingsObj.ValueKind != JsonValueKind.Object)
-            throw new InvalidDataException("Settings オブジェクトが見つからないか、形式が不正です。");
-
-        var libraryJson = libraryElement.GetRawText();
-        var options = new JsonSerializerOptions { Converters = { new JsonStringEnumConverter() } };
-        var library = JsonSerializer.Deserialize<List<LibraryEntry>>(libraryJson, options) ?? [];
-
-        var settings = new Dictionary<string, object>();
-        foreach (var prop in settingsObj.EnumerateObject())
-        {
-            settings[prop.Name] = prop.Value.ToString();
-        }
-
-        return (library, settings);
+        var (library, settings) = LibraryExportImport.DeserializeExport(json);
+        return (library.ToList(), settings);
     }
 
     /// <summary>エクスポートしたJSONの設定をアプリ設定に反映させる。</summary>
-    public static void ApplyImportedSettings(AppSettings settings, Dictionary<string, object> importedSettings)
-    {
-        if (importedSettings.TryGetValue("Vertical", out var v) && bool.TryParse(v.ToString(), out var vertical))
-            settings.Vertical = vertical;
-        if (importedSettings.TryGetValue("GrayscaleImages", out var g) && bool.TryParse(g.ToString(), out var grayscale))
-            settings.GrayscaleImages = grayscale;
-        if (importedSettings.TryGetValue("IncludeInlineImages", out var i) && bool.TryParse(i.ToString(), out var inline))
-            settings.IncludeInlineImages = inline;
-        if (importedSettings.TryGetValue("KeepRuby", out var r) && bool.TryParse(r.ToString(), out var ruby))
-            settings.KeepRuby = ruby;
-        if (importedSettings.TryGetValue("EnableProofreading", out var p) && bool.TryParse(p.ToString(), out var proof))
-            settings.EnableProofreading = proof;
-        if (importedSettings.TryGetValue("EpisodesPerFile", out var e) && int.TryParse(e.ToString(), out var episodes))
-            settings.EpisodesPerFile = episodes;
-        if (importedSettings.TryGetValue("RequestDelayMs", out var d) && int.TryParse(d.ToString(), out var delay))
-            settings.RequestDelayMs = delay;
-        if (importedSettings.TryGetValue("IsDarkMode", out var dark) && bool.TryParse(dark.ToString(), out var darkMode))
-            settings.IsDarkMode = darkMode;
-    }
+    public static void ApplyImportedSettings(AppSettings settings, Dictionary<string, string?> importedSettings)
+        => LibraryExportImport.ApplyImportedSettings(settings, importedSettings);
 }

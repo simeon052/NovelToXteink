@@ -71,6 +71,8 @@ public sealed class XtcBuilder : IDisposable
         _disposed = true;
         _spool.Dispose();
         // DeleteOnClose で消えるはずだが、念のため後始末する。
-        try { if (File.Exists(_spoolPath)) File.Delete(_spoolPath); } catch { /* 一時ファイルなので無視 */ }
+        try { if (File.Exists(_spoolPath)) File.Delete(_spoolPath); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        { System.Diagnostics.Trace.WriteLine($"[IGNORED] XTC の一時ファイルを消せない: {_spoolPath}: {ex.Message}"); }
     }
 }
