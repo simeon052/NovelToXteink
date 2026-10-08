@@ -44,15 +44,24 @@ public class NameFormatterTests
     }
 
     [Theory]
-    [InlineData("a/b", "a_b")]
-    [InlineData("a\\b", "a_b")]
-    [InlineData("a:b", "a_b")]
-    [InlineData("a*b?c", "a_b_c")]
-    [InlineData("a\"b", "a_b")]
-    [InlineData("a<b>c|d", "a_b_c_d")]
+    // Windows の無効文字はハードコード（クロスプラットフォーム対応）。
+    // Path.GetInvalidFileNameChars() は OS 依存のため直接使用しない。
+    [InlineData("a/b", "a_b")]       // / (Windows/Linux 無効)
+    [InlineData("a\\b", "a_b")]     // \ (Windows 無効)
+    [InlineData("a:b", "a_b")]      // : (Windows 無効)
+    [InlineData("a*b?c", "a_b_c")]  // * ? (Windows 無効)
+    [InlineData("a\"b", "a_b")]     // " (Windows 無効)
+    [InlineData("a<b>c|d", "a_b_c_d")] // < > | (Windows 無効)
     public void Sanitize_ReplacesCharactersThatAreInvalidInWindowsFileNames(string input, string expected)
     {
         Assert.Equal(expected, NameFormatter.Sanitize(input));
+    }
+
+    [Fact]
+    public void Sanitize_Apostrophe_IsAllowed()
+    {
+        // ' はファイル名として有効な文字（Windows/Linux 両方）
+        Assert.Equal("it's", NameFormatter.Sanitize("it's"));
     }
 
     [Fact]
