@@ -64,7 +64,7 @@
         <!-- キーワード検索カード -->
         <Border DockPanel.Dock="Top" Style="{StaticResource Card}" Margin="0,0,0,12">
             <StackPanel>
-                <TextBlock Style="{StaticResource SectionTitle}" Text="キーワード検索（になろう、カクヨム）"/>
+                <TextBlock Style="{StaticResource SectionTitle}" Text="キーワード検索（なろう、カクヨム）"/>
                 <StackPanel Orientation="Horizontal" Margin="0,6,0,10">
                     <TextBox Style="{StaticResource Field}" Width="420"
                              IsEnabled="{Binding IsNotBusy}"

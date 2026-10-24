@@ -14,8 +14,8 @@ public sealed record NovelSearchResult(NovelSite Site, string Title, string Auth
     /// <summary>話数（取得できないときは 0）。</summary>
     public int EpisodeCount { get; init; }
 
-    /// <summary>完結しているか（連載中・不明は false）。</summary>
-    public bool IsCompleted { get; init; }
+    /// <summary>完結しているか（true=完結、false=連載中、null=取得できず・表示は「(不明)」）。</summary>
+    public bool? IsCompleted { get; init; }
 
     /// <summary>UI 表示用のラベル。</summary>
     public string Label => string.IsNullOrWhiteSpace(Author) ? Title : $"{Title} — {Author}";
@@ -159,7 +159,7 @@ public static partial class NovelSearchService
                 $"https://ncode.syosetu.com/{ncode.ToLowerInvariant()}/")
             {
                 EpisodeCount = GetInt(item, "general_all_no"),  // ga: 総投稿話数
-                IsCompleted = GetInt(item, "end") == 0,        // e: 0=完結（短編を含む）, 1=連載中
+                IsCompleted = GetNullableInt(item, "end") is int end ? end == 0 : null,  // e: 0=完結, 1=連載中（取得不能は null）
             });
         }
         return results;
@@ -179,12 +179,13 @@ public static partial class NovelSearchService
 
             string author = "";
             int episodes = 0;
-            bool completed = false;
+            bool? completed = null;
 
             if (FindEntity(html, $"Work:{workId}") is JsonElement work)
             {
                 episodes = GetInt(work, "publicEpisodeCount");
-                completed = string.Equals(GetStr(work, "serialStatus"), "COMPLETED", StringComparison.OrdinalIgnoreCase);
+                if (GetStr(work, "serialStatus") is string status)
+                    completed = string.Equals(status, "COMPLETED", StringComparison.OrdinalIgnoreCase);
 
                 if (work.TryGetProperty("author", out var authorRef) && authorRef.ValueKind == JsonValueKind.Object
                     && GetStr(authorRef, "__ref") is { } refKey && FindEntity(html, refKey) is JsonElement user)
@@ -251,6 +252,14 @@ public static partial class NovelSearchService
         if (p.ValueKind == JsonValueKind.Number && p.TryGetInt32(out int n)) return n;
         if (p.ValueKind == JsonValueKind.String && int.TryParse(p.GetString(), out n)) return n;
         return 0;
+    }
+
+    private static int? GetNullableInt(JsonElement e, string name)
+    {
+        if (!e.TryGetProperty(name, out var p)) return null;
+        if (p.ValueKind == JsonValueKind.Number && p.TryGetInt32(out int n)) return n;
+        if (p.ValueKind == JsonValueKind.String && int.TryParse(p.GetString(), out n)) return n;
+        return null;
     }
 
     /// <summary>埋め込み JSON から作品IDに対応する作者名を拾う。取れなければ空文字。</summary>

@@ -9,6 +9,13 @@ public sealed class SearchResultVm : ViewModelBase
     private static readonly Brush CompletedBrush = new SolidColorBrush(Color.FromRgb(0x16, 0xA3, 0x4A));
     private static readonly Brush OngoingBrush = new SolidColorBrush(Color.FromRgb(0x9C, 0xA3, 0xAF));
 
+    static SearchResultVm()
+    {
+        // WPF の静的 Brush はフリーズ推奨（スレッド安全・パフォーマンス）
+        CompletedBrush.Freeze();
+        OngoingBrush.Freeze();
+    }
+
     private readonly Action _selectionChanged;
     private bool _isSelected;
 
@@ -32,11 +39,11 @@ public sealed class SearchResultVm : ViewModelBase
     public string Author => string.IsNullOrWhiteSpace(Result.Author) ? "(作者不明)" : Result.Author;
     public string SiteLabel => Result.Site switch
     {
-        NovelSite.Syosetu => "になろう",
+        NovelSite.Syosetu => "なろう",
         NovelSite.Kakuyomu => "カクヨム",
         _ => Result.Site.ToString(),
     };
     public string EpisodesText => Result.EpisodeCount > 0 ? $"{Result.EpisodeCount}話" : "(不明)";
-    public string StatusText => Result.IsCompleted ? "完結" : "連載中";
-    public Brush StatusBrush => Result.IsCompleted ? CompletedBrush : OngoingBrush;
+    public string StatusText => Result.IsCompleted switch { true => "完結", false => "連載中", _ => "(不明)" };
+    public Brush StatusBrush => Result.IsCompleted == true ? CompletedBrush : OngoingBrush;
 }

@@ -23,9 +23,9 @@ public class SearchTests
         Assert.Equal(2, results.Count);
         Assert.Equal("https://ncode.syosetu.com/12345/", results[0].Url);
         Assert.Equal(42, results[0].EpisodeCount);
-        Assert.True(results[0].IsCompleted);                      // end=0 → 完結
+        Assert.Equal(true, results[0].IsCompleted);               // end=0 → 完結
         Assert.Equal(7, results[1].EpisodeCount);
-        Assert.False(results[1].IsCompleted);                     // end=1 → 連載中
+        Assert.Equal(false, results[1].IsCompleted);              // end=1 → 連載中
     }
 
     [Fact]
@@ -54,7 +54,7 @@ public class SearchTests
         Assert.Equal("転生リスト", results[0].Title);
         Assert.Equal("作者A", results[0].Author);
         Assert.Equal(42, results[0].EpisodeCount);
-        Assert.True(results[0].IsCompleted);
+        Assert.Equal(true, results[0].IsCompleted);
         Assert.Equal(NovelSite.Kakuyomu, results[0].Site);
         Assert.Equal("https://kakuyomu.jp/works/111", results[0].Url);
     }
@@ -72,7 +72,7 @@ public class SearchTests
 
         Assert.Single(results);
         Assert.Equal(3, results[0].EpisodeCount);                 // 文字列 "3" も話数として読む
-        Assert.False(results[0].IsCompleted);                     // RUNNING → 連載中
+        Assert.Equal(false, results[0].IsCompleted);              // RUNNING → 連載中
         Assert.Equal("作者B", results[0].Author);
     }
 
@@ -91,6 +91,26 @@ public class SearchTests
         Assert.Equal(2, results.Count);
         Assert.Equal("A", results[0].Title);
         Assert.Equal("C", results[1].Title);
+    }
+
+    [Fact]
+    public void ParseSyosetuJson_EndFieldMissing_UnknownStatus()
+    {
+        var json = """
+            [{"allcount":1},{"ncode":"nc003","title":"C","writer":"Z"}]
+            """;
+        var results = NovelSearchService.ParseSyosetuJson(json);
+        Assert.Single(results);
+        Assert.Null(results[0].IsCompleted);  // 取得不能 → 不明（null）
+    }
+
+    [Fact]
+    public void ParseKakuyomuHtml_NoEmbeddedEntity_UnknownStatus()
+    {
+        var results = NovelSearchService.ParseKakuyomuHtml(
+            "<a title=\"不明テスト\" href=\"/works/111\"></a>", 10);
+        Assert.Single(results);
+        Assert.Null(results[0].IsCompleted);  // 埋め込みJSONなし → 不明（null）
     }
 
     // --- 並べ替え（タイトル一致優先） ---

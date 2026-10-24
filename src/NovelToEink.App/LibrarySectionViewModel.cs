@@ -155,9 +155,6 @@ public sealed class LibrarySectionViewModel : ViewModelBase
     /// <summary>メインビューモデルの IsBusy を更新。</summary>
     public void SetIsBusy(bool value) => IsBusy = value;
 
-    /// <summary>共有キャンセルトークン（検索セクションから参照される）。</summary>
-    public CancellationTokenSource? Cts => _cts;
-
     /// <summary>中断可能な新しい操作を開始する（中断ボタンと共有される）。</summary>
     public CancellationTokenSource NewCts() => _cts = new CancellationTokenSource();
 
@@ -171,6 +168,7 @@ public sealed class LibrarySectionViewModel : ViewModelBase
         var dlProgress = MakeDlProgress();
         var buildProgress = new Progress<string>(m => SetStatus("[EPUB] " + m));
         int added = 0, failed = 0;
+        string? lastError = null;
 
         try
         {
@@ -190,12 +188,13 @@ public sealed class LibrarySectionViewModel : ViewModelBase
                     PrefetchCoverCandidates(entry);
                 }
                 catch (OperationCanceledException) { throw; }
-                catch (Exception ex) { failed++; }
+                catch (Exception ex) { failed++; lastError = ex.Message; }
             }
 
+            var failInfo = failed > 0 ? $" / 失敗 {failed}" + (lastError != null ? $"（{lastError}）" : "") : "";
             SetStatus(added > 0
-                ? $"一括ダウンロード完了（追加 {added} 件" + (failed > 0 ? $" / 失敗 {failed}" : "") + "）。"
-                : "一括ダウンロードで 0 件。" + (failed > 0 ? $"（失敗 {failed}）" : ""));
+                ? $"一括ダウンロード完了（追加 {added} 件{failInfo}）。"
+                : "一括ダウンロードで 0 件。" + failInfo);
         }
         catch (OperationCanceledException) { SetStatus($"中断しました（追加 {added} 件）。"); }
         finally { EndBusy(); OnChanged(nameof(PickPendingCoversLabel)); }

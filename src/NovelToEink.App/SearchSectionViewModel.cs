@@ -52,7 +52,7 @@ public sealed class SearchSectionViewModel : ViewModelBase
         var query = Keyword.Trim();
         var cts = _library.NewCts();
         _library.SetIsBusy(true);
-        _library.StatusSetter?.Invoke($"キーワードを検索中: {query}");
+        StatusSetter?.Invoke($"キーワードを検索中: {query}");
 
         try
         {
@@ -61,15 +61,15 @@ public sealed class SearchSectionViewModel : ViewModelBase
             foreach (var hit in hits) Results.Add(new SearchResultVm(hit, NotifySelectionChanged));
             OnChanged(nameof(SelectedCount));
 
-            _library.StatusSetter?.Invoke(hits.Count == 0
+            StatusSetter?.Invoke(hits.Count == 0
                 ? $"「{query}」に一致する作品が見つかりませんでした。"
                 : $"{hits.Count} 件ヒットしました。チェックして「選択した作品を一括ダウンロード」へ。");
         }
-        catch (OperationCanceledException) { _library.StatusSetter?.Invoke("検索を中断しました。"); }
+        catch (OperationCanceledException) { StatusSetter?.Invoke("検索を中断しました。"); }
         catch (Exception ex)
         {
             CoreLog.Warn("検索に失敗", ex);
-            _library.StatusSetter?.Invoke("検索に失敗しました: " + ex.Message);
+            StatusSetter?.Invoke("検索に失敗しました: " + ex.Message);
         }
         finally { _library.SetIsBusy(false); }
     }
