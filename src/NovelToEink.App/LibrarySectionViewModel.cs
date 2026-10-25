@@ -155,6 +155,51 @@ public sealed class LibrarySectionViewModel : ViewModelBase
     /// <summary>メインビューモデルの IsBusy を更新。</summary>
     public void SetIsBusy(bool value) => IsBusy = value;
 
+    /// <summary>中断可能な新しい操作を開始する（中断ボタンと共有される）。</summary>
+    public CancellationTokenSource NewCts() => _cts = new CancellationTokenSource();
+
+    /// <summary>検索セクションで選択された URL をまとめて追加する（「追加」ボタンと同じ処理。表紙は自動）。</summary>
+    public async Task AddUrlsFromSearchAsync(IReadOnlyList<string> urls)
+    {
+        if (urls.Count == 0 || IsBusy) return;
+
+        IsBusy = true;
+        _cts = new CancellationTokenSource();
+        var dlProgress = MakeDlProgress();
+        var buildProgress = new Progress<string>(m => SetStatus("[EPUB] " + m));
+        int added = 0, failed = 0;
+        string? lastError = null;
+
+        try
+        {
+            SetStatus($"選択した {urls.Count} 件をダウンロード中…");
+            foreach (var url in urls)
+            {
+                _cts.Token.ThrowIfCancellationRequested();
+                try
+                {
+                    var novel = await _service.DownloadAsync(url, Options, dlProgress, _cts.Token);
+
+                    var cover = await Task.Run(() => CoverSelection.PickProvisional(novel, Options));
+                    var entry = await Task.Run(() =>
+                        _service.BuildAndRegister(novel, cover, Options, buildProgress, coverPending: true));
+                    UpsertItem(entry);
+                    added++;
+                    PrefetchCoverCandidates(entry);
+                }
+                catch (OperationCanceledException) { throw; }
+                catch (Exception ex) { failed++; lastError = ex.Message; }
+            }
+
+            var failInfo = failed > 0 ? $" / 失敗 {failed}" + (lastError != null ? $"（{lastError}）" : "") : "";
+            SetStatus(added > 0
+                ? $"一括ダウンロード完了（追加 {added} 件{failInfo}）。"
+                : "一括ダウンロードで 0 件。" + failInfo);
+        }
+        catch (OperationCanceledException) { SetStatus($"中断しました（追加 {added} 件）。"); }
+        finally { EndBusy(); OnChanged(nameof(PickPendingCoversLabel)); }
+    }
+
     /// <summary>メインビューモデルの進捗を更新。</summary>
     public void SetProgress(double value, bool indeterminate = false)
     {

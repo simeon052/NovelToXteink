@@ -6,7 +6,7 @@
         xmlns:local="clr-namespace:NovelToEink.App"
         mc:Ignorable="d"
         Title="Novel To Xteink"
-        Height="820" Width="1100" MinHeight="640" MinWidth="940"
+        Height="940" Width="1100" MinHeight="640" MinWidth="940"
         Background="{DynamicResource AppBg}" FontFamily="Yu Gothic UI" FontSize="13"
         TextOptions.TextFormattingMode="Display" UseLayoutRounding="True">
     <DockPanel Margin="18">
@@ -59,6 +59,53 @@
                             Command="{Binding CancelCommand}"/>
                 </StackPanel>
             </Grid>
+        </Border>
+
+        <!-- キーワード検索カード -->
+        <Border DockPanel.Dock="Top" Style="{StaticResource Card}" Margin="0,0,0,12">
+            <StackPanel>
+                <TextBlock Style="{StaticResource SectionTitle}" Text="キーワード検索（なろう、カクヨム）"/>
+                <StackPanel Orientation="Horizontal" Margin="0,6,0,10">
+                    <TextBox Style="{StaticResource Field}" Width="420"
+                             IsEnabled="{Binding IsNotBusy}"
+                             Text="{Binding SearchSection.Keyword, UpdateSourceTrigger=PropertyChanged}"
+                             ToolTip="キーワードを入力して検索。タイトル・作者・話数・完結状況が一覧表示され、チェックした作品を一括ダウンロードできます。"/>
+                    <Button Style="{StaticResource Accent}" Content="🔍 検索" Margin="8,0,0,0" Padding="14,6"
+                            Command="{Binding SearchSection.SearchCommand}"/>
+                </StackPanel>
+
+                <ScrollViewer MaxHeight="260" VerticalScrollBarVisibility="Auto">
+                    <ItemsControl ItemsSource="{Binding SearchSection.Results}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1" Padding="2,5">
+                                    <StackPanel Orientation="Horizontal">
+                                        <CheckBox VerticalAlignment="Center" Margin="0,0,10,0" IsChecked="{Binding IsSelected}"
+                                                  IsEnabled="{Binding DataContext.IsNotBusy, RelativeSource={RelativeSource AncestorType=Window}}"/>
+                                        <TextBlock Text="{Binding Title}" Width="380" TextTrimming="CharacterEllipsis"
+                                                   VerticalAlignment="Center"/>
+                                        <TextBlock Text="{Binding Author}" Width="150" TextTrimming="CharacterEllipsis"
+                                                   Foreground="{DynamicResource Muted}" VerticalAlignment="Center" Margin="0,0,14,0"/>
+                                        <TextBlock Text="{Binding EpisodesText}" Width="56" VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource Muted}" Margin="0,0,14,0"/>
+                                        <TextBlock Text="{Binding SiteLabel}" Width="64" VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource Muted}" Margin="0,0,14,0"/>
+                                        <TextBlock Text="{Binding StatusText}" FontWeight="SemiBold" VerticalAlignment="Center"
+                                                   Foreground="{Binding StatusBrush}"/>
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+
+                <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                    <Button Style="{StaticResource Ghost}" Content="全選択" Padding="10,5" Margin="0,0,10,0"
+                            Command="{Binding SearchSection.SelectAllCommand}"/>
+                    <Button Style="{StaticResource Accent}" Content="⬇ 選択した作品を一括ダウンロード" Padding="12,6"
+                            Command="{Binding SearchSection.DownloadSelectedCommand}"/>
+                </StackPanel>
+            </StackPanel>
         </Border>
 
         <!-- オプション + フォルダ + 一括操作 -->

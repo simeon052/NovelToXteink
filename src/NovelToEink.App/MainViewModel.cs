@@ -25,6 +25,9 @@ public sealed class MainViewModel : ViewModelBase
     /// <summary>ライブラリと設定のエクスポート/インポート操作のサブビューモデル。</summary>
     public ImportExportSectionViewModel ImportExport { get; }
 
+    /// <summary>キーワード検索セクション（検索 → 一覧表示 → 複数選択して一括ダウンロード）。</summary>
+    public SearchSectionViewModel SearchSection { get; }
+
     public MainViewModel()
     {
         _settings = AppSettings.Load();
@@ -53,6 +56,12 @@ public sealed class MainViewModel : ViewModelBase
             DarkModeChangedNotifier = () => OnChanged(nameof(IsDarkMode)),
             DarkModeLabelChangedNotifier = () => OnChanged(nameof(DarkModeToggleLabel)),
             LibraryReloader = () => Library.ReloadItems(),
+        };
+
+        // 検索セクションを初期化（StatusText を共有し、一括ダウンロードは Library 経由）
+        SearchSection = new SearchSectionViewModel(Library)
+        {
+            StatusSetter = msg => { StatusText = msg; },
         };
 
         ApplyTheme(_settings.IsDarkMode);
