@@ -357,8 +357,17 @@
                                                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                                     <!-- タイトル行 -->
                                                     <StackPanel Orientation="Horizontal">
-                                                        <TextBlock Text="{Binding Title}" FontSize="15" FontWeight="SemiBold"
-                                                                   TextTrimming="CharacterEllipsis" VerticalAlignment="Center" MaxWidth="380"/>
+                                                        <Grid MaxWidth="380" VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding Title}" FontSize="15" FontWeight="SemiBold"
+                                                                       TextTrimming="CharacterEllipsis" VerticalAlignment="Center" MaxWidth="380"
+                                                                       ToolTip="ダブルクリックでタイトルを編集"
+                                                                       MouseLeftButtonDown="Title_MouseClick"
+                                                                       Visibility="{Binding EditingTitle, Converter={x:Static local:BoolToVisibility.Instance}, ConverterParameter=invert}"/>
+                                                            <TextBox Text="{Binding TitleEdit, UpdateSourceTrigger=PropertyChanged}" FontSize="15" FontWeight="SemiBold"
+                                                                       MaxWidth="380" Padding="3,1" BorderBrush="#94A3B8" BorderThickness="1"
+                                                                       Visibility="{Binding EditingTitle, Converter={x:Static local:BoolToVisibility.Instance}}"
+                                                                       KeyDown="TitleEdit_KeyDown" LostFocus="TitleEdit_LostFocus"/>
+                                                        </Grid>
                                                         <Border Visibility="{Binding CompletedVisibility}" Background="#16A34A"
                                                                 CornerRadius="4" Padding="6,1" Margin="8,0,0,0" VerticalAlignment="Center">
                                                             <TextBlock Text="完結" Foreground="White" FontSize="11" FontWeight="SemiBold"/>

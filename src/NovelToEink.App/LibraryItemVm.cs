@@ -11,14 +11,55 @@ public sealed class LibraryItemVm : ViewModelBase
 {
     public LibraryEntry Entry { get; }
 
-    public LibraryItemVm(LibraryEntry entry)
+    private readonly Action<LibraryEntry, string> _persistTitle;
+
+    public LibraryItemVm(LibraryEntry entry, Action<LibraryEntry, string> persistTitle)
     {
         Entry = entry;
+        _persistTitle = persistTitle;
         _nameTemplateEdit = entry.NameTemplate;
         LoadThumbnail();
     }
 
     public string Title => Entry.Title;
+
+    // ---- タイトル編集（ダブルクリック） ----
+    private bool _editingTitle;
+    public bool EditingTitle { get => _editingTitle; set => Set(ref _editingTitle, value); }
+
+    private string _titleEdit = "";
+    public string TitleEdit { get => _titleEdit; set => Set(ref _titleEdit, value); }
+
+    public void StartTitleEdit()
+    {
+        TitleEdit = Entry.Title;
+        EditingTitle = true;
+    }
+
+    /// <summary>編集中のタイトルを確定して保存。空文字は確定しない（取消扱い）。</summary>
+    public void CommitTitleEdit()
+    {
+        if (!EditingTitle) return;
+        var t = TitleEdit.Trim();
+        if (t.Length > 0 && t != Entry.Title)
+        {
+            try { _persistTitle(Entry, t); }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+            {
+                // レビューM-2: 保存失敗でクラッシュしない。編集状態を維持して再試行可能にし、エラーを報告。
+                CoreLog.Error("タイトル保存失敗", ex);
+                TitleEditError?.Invoke($"タイトル保存失敗: {ex.Message}");
+                return;
+            }
+        }
+        EditingTitle = false;
+        OnChanged(nameof(Title));
+    }
+
+    /// <summary>保存失敗等のエラー通知（ステータスバーへ）。レビューM-2。</summary>
+    public event Action<string>? TitleEditError;
+
+    public void CancelTitleEdit() => EditingTitle = false;
     public string Author => string.IsNullOrWhiteSpace(Entry.Author) ? "(作者不明)" : Entry.Author;
     public string SiteLabel => Entry.Site switch
     {

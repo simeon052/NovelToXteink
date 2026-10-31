@@ -13,6 +13,29 @@ namespace NovelToEink.Tests;
 public class LibraryServiceTests
 {
     [Fact]
+    public void UpdateTitle_SetsTitleAndPersistsToLibraryJson()
+    {
+        using var dir = new TempDir();
+        var settings = new AppSettings { OutputFolder = dir.Path };
+        var service = new LibraryService(settings);
+
+        var entry = new LibraryEntry
+        {
+            Title = "[連載版]物語",
+            WorkId = "w1",
+            Site = NovelSite.Kakuyomu,
+            Url = "https://kakuyomu.jp/work/w1"
+        };
+        service.Entries.Add(entry);
+
+        service.UpdateTitle(entry, "物語");
+
+        Assert.Equal("物語", entry.Title);
+        var reloaded = new LibraryStore(dir.Path).Load();
+        Assert.Equal("物語", reloaded.Single(e => e.WorkId == "w1").Title);
+    }
+
+    [Fact]
     public void RenameFiles_ChangesFileNames()
     {
         using var dir = new TempDir();

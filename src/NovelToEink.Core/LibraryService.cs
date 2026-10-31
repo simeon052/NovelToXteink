@@ -38,7 +38,25 @@ public sealed class LibraryService
         Entries = Store.Load();
     }
 
-    public void Persist() => Store.Save(Entries);
+    public void Persist() { lock (_gate) Store.Save(Entries.ToList()); }
+
+    /// <summary>サイトタイトルを適用する。ユーザー編集確定済み（TitleUserEdited）なら上書きしない（レビューC-1）。</summary>
+    public static void ApplyTitle(LibraryEntry entry, string rawTitle)
+    {
+        if (entry.TitleUserEdited) return;
+        entry.Title = TitleCleaner.Clean(rawTitle) ?? "";
+    }
+
+    /// <summary>タイトルを更新して library.json に保存する（UIスレッドからの編集。ゲート下でワーカーと直列化）。</summary>
+    public void UpdateTitle(LibraryEntry entry, string title)
+    {
+        lock (_gate)
+        {
+            entry.Title = title;
+            entry.TitleUserEdited = true;
+            Persist();
+        }
+    }
 
     public bool IsSupported(string url) => new[] { "ncode.syosetu.com", "novel18.syosetu.com", "kakuyomu.jp" }
         .Any(h => url.Contains(h, StringComparison.OrdinalIgnoreCase));
@@ -90,7 +108,7 @@ public sealed class LibraryService
         entry.Url = meta.Url;
         entry.Site = meta.Site;
         entry.WorkId = meta.WorkId;
-        entry.Title = TitleCleaner.Clean(meta.Title) ?? "";
+        ApplyTitle(entry, meta.Title);
         entry.Author = meta.Author;
         entry.Description = meta.Description;
         entry.IsCompleted = meta.IsCompleted;
@@ -176,7 +194,7 @@ public sealed class LibraryService
         progress?.Report("目次取得中...");
         var toc = await service.GetTableOfContentsAsync(entry.Url, ct);
 
-        entry.Title = TitleCleaner.Clean(meta.Title) ?? "";
+        ApplyTitle(entry, meta.Title);
         entry.Author = meta.Author;
         entry.IsCompleted = meta.IsCompleted;
         entry.SiteLastUpdated = meta.SiteLastUpdated;
@@ -203,7 +221,7 @@ public sealed class LibraryService
         var proofreading2 = entry.Options.EnableProofreading ? ProofreadingService.Load() : null;
         var parts = EpubBuilder.BuildSplit(novel, cover, entry.Options, Settings.OutputFolder, entry.NameTemplate, buildProgress, proofreading2);
 
-        entry.Title = TitleCleaner.Clean(novel.Metadata.Title) ?? "";
+        ApplyTitle(entry, novel.Metadata.Title);
         entry.Author = novel.Metadata.Author;
         entry.Description = novel.Metadata.Description;
         entry.IsCompleted = novel.Metadata.IsCompleted;

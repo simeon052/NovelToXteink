@@ -1,3 +1,4 @@
+using System.IO;
 using Xunit;
 using NovelToEink.Core;
 
