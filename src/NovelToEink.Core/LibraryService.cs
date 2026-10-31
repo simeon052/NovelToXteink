@@ -90,7 +90,7 @@ public sealed class LibraryService
         entry.Url = meta.Url;
         entry.Site = meta.Site;
         entry.WorkId = meta.WorkId;
-        entry.Title = meta.Title;
+        entry.Title = TitleCleaner.Clean(meta.Title) ?? "";
         entry.Author = meta.Author;
         entry.Description = meta.Description;
         entry.IsCompleted = meta.IsCompleted;
@@ -176,7 +176,7 @@ public sealed class LibraryService
         progress?.Report("目次取得中...");
         var toc = await service.GetTableOfContentsAsync(entry.Url, ct);
 
-        entry.Title = meta.Title;
+        entry.Title = TitleCleaner.Clean(meta.Title) ?? "";
         entry.Author = meta.Author;
         entry.IsCompleted = meta.IsCompleted;
         entry.SiteLastUpdated = meta.SiteLastUpdated;
@@ -203,7 +203,7 @@ public sealed class LibraryService
         var proofreading2 = entry.Options.EnableProofreading ? ProofreadingService.Load() : null;
         var parts = EpubBuilder.BuildSplit(novel, cover, entry.Options, Settings.OutputFolder, entry.NameTemplate, buildProgress, proofreading2);
 
-        entry.Title = novel.Metadata.Title;
+        entry.Title = TitleCleaner.Clean(novel.Metadata.Title) ?? "";
         entry.Author = novel.Metadata.Author;
         entry.Description = novel.Metadata.Description;
         entry.IsCompleted = novel.Metadata.IsCompleted;

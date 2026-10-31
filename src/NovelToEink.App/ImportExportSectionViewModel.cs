@@ -125,7 +125,7 @@ public sealed class ImportExportSectionViewModel : ViewModelBase
                         var existing = _service.Entries.FirstOrDefault(e => e.Url == imported.Url);
                         if (existing != null)
                         {
-                            existing.Title = imported.Title;
+                            existing.Title = TitleCleaner.Clean(imported.Title) ?? "";
                             existing.Author = imported.Author;
                             existing.EpisodeCount = imported.EpisodeCount;
                             existing.IsCompleted = imported.IsCompleted;
@@ -139,7 +139,7 @@ public sealed class ImportExportSectionViewModel : ViewModelBase
                                 Url = imported.Url,
                                 Site = imported.Site,
                                 WorkId = imported.WorkId,
-                                Title = imported.Title,
+                                Title = TitleCleaner.Clean(imported.Title) ?? "",
                                 Author = imported.Author,
                                 Description = imported.Description,
                                 EpisodeCount = imported.EpisodeCount,

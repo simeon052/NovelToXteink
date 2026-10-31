@@ -52,7 +52,7 @@ public sealed class JobHandler : IJobHandler
                     if (meta is not null)
                     {
                         _progress?.Report("Check: キャッシュを使用");
-                        entry.Title = meta.Title;
+                        entry.Title = TitleCleaner.Clean(meta.Title) ?? "";
                         entry.Author = meta.Author;
                         entry.IsCompleted = meta.IsCompleted;
                         entry.SiteLastUpdated = meta.SiteLastUpdated;
