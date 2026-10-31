@@ -28,6 +28,17 @@ public sealed class MainViewModel : ViewModelBase
     /// <summary>キーワード検索セクション（検索 → 一覧表示 → 複数選択して一括ダウンロード）。</summary>
     public SearchSectionViewModel SearchSection { get; }
 
+    /// <summary>ジョブキュー調停役（バックグラウンドで順次処理。UIをブロックしない）。</summary>
+    public JobQueueCoordinator? Queue { get; private set; }
+
+    /// <summary>キューパネル表示（MainWindow の ItemsControl 用）。</summary>
+    public System.Collections.ObjectModel.ObservableCollection<JobPanelVm> QueuePanelItems
+        => Queue is null ? new ObservableCollection<JobPanelVm>() : Queue.PanelItems;
+
+    /// <summary>キューの要約行（例: キュー: 待ち 3 / 実行中 1）。</summary>
+    public string QueueStatusLine => Queue is null ? ""
+        : $"キュー: 待ち {Queue.QueuedCount} / 実行中 {(Queue.IsRunning ? 1 : 0)}";
+
     public MainViewModel()
     {
         _settings = AppSettings.Load();
@@ -64,20 +75,33 @@ public sealed class MainViewModel : ViewModelBase
             StatusSetter = msg => { StatusText = msg; },
         };
 
+        // ジョブキュー：バックグラウンドワーカーループで順次処理（UIをブロックしない）
+        Queue = new JobQueueCoordinator(_settings, _service);
+        Library.Queue = Queue;
+        Queue.SetUi(msg => { StatusText = msg; },
+            job =>
+            {
+                Library.RefreshQueueDisplay(job);
+                OnChanged(nameof(QueueStatusLine));
+                // ワーカー上のIsRunning遷移はRequerySuggestedを発火しないので明示（レビューM-4）
+                System.Windows.Input.CommandManager.InvalidateRequerySuggested();
+            });
+        Queue.StartWorker();
+
         ApplyTheme(_settings.IsDarkMode);
 
         // コマンドを初期化してサブビューモデルに渡す
-        var addCmd = new AsyncRelayCommand(Library.AddAsync, () => !Library.IsBusy && Library.HasInputs);
-        var checkAllCmd = new AsyncRelayCommand(Library.CheckAllAsync, () => !Library.IsBusy && Library.Items.Count > 0);
-        var updateAllCmd = new AsyncRelayCommand(Library.UpdateAllAsync, () => !Library.IsBusy && Library.Items.Any(i => i.HasUpdate));
-        var checkItemCmd = new AsyncRelayCommand<LibraryItemVm>(Library.CheckItemAsync, _ => !Library.IsBusy);
-        var updateItemCmd = new AsyncRelayCommand<LibraryItemVm>(Library.UpdateItemAsync, _ => !Library.IsBusy);
+        var addCmd = new AsyncRelayCommand(Library.AddAsync, () => Library.HasInputs);
+        var checkAllCmd = new AsyncRelayCommand(Library.CheckAllAsync, () => Library.Items.Count > 0);
+        var updateAllCmd = new AsyncRelayCommand(Library.UpdateAllAsync, () => Library.Items.Any(i => i.HasUpdate));
+        var checkItemCmd = new AsyncRelayCommand<LibraryItemVm>(Library.CheckItemAsync, _ => true);
+        var updateItemCmd = new AsyncRelayCommand<LibraryItemVm>(Library.UpdateItemAsync, _ => true);
         var changeCoverCmd = new AsyncRelayCommand<LibraryItemVm>(Library.ChangeCoverAsync, _ => !Library.IsBusy);
         var pickPendingCmd = new AsyncRelayCommand(Library.PickPendingCoversAsync, () => !Library.IsBusy && Library.PendingCoverCount > 0);
         var openEpubCmd = new RelayCommand<LibraryItemVm>(Library.OpenEpub);
         var openFolderCmd = new RelayCommand<LibraryItemVm>(Library.OpenFolder);
-        var convertXtcCmd = new AsyncRelayCommand<LibraryItemVm>(Library.ConvertXtcAsync, _ => !Library.IsBusy);
-        var convertAllXtcCmd = new AsyncRelayCommand(Library.ConvertAllXtcAsync, () => !Library.IsBusy && Library.Items.Count > 0);
+        var convertXtcCmd = new AsyncRelayCommand<LibraryItemVm>(Library.ConvertXtcAsync, _ => true);
+        var convertAllXtcCmd = new AsyncRelayCommand(Library.ConvertAllXtcAsync, () => Library.Items.Count > 0);
 
         Library.InitCommands(
             addCmd,
@@ -143,7 +167,7 @@ public sealed class MainViewModel : ViewModelBase
     public bool ProgressIndeterminate => Library.ProgressIndeterminate;
 
     private string _statusText = "URL、または作品タイトルを入力して「ライブラリに追加」。1行に1件で、まとめて追加できます。";
-    public string StatusText { get => _statusText; set => Set(ref _statusText, value); }
+    public string StatusText { get => _statusText; set { Set(ref _statusText, value); OnChanged(nameof(QueueStatusLine)); } }
 
     // ---- コマンド（公開） ----
 

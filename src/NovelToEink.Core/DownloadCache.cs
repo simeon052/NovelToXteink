@@ -117,6 +117,62 @@ public sealed class DownloadCache
         { CoreLog.Ignored("画像のキャッシュを書けない", ex); }
     }
 
+    // ---- cache-only 読み（JobHandlerのConvert用：フォルダを作らずネットワーク不使用） ----
+
+    /// <summary>この作品のキャッシュが存在するか（フォルダを作らない）。</summary>
+    public static bool HasCachedWork(string cacheRoot, string site, string workId)
+        => File.Exists(Path.Combine(GetWorkCacheDir(cacheRoot, site, workId), "meta.json"));
+
+    /// <summary>キャッシュ済みの1作品分。</summary>
+    public sealed record CachedWork(NovelMetadata Metadata, IReadOnlyList<EpisodeContent> Episodes, IReadOnlyList<ScrapedImage> Images);
+
+    /// <summary>キャッシュ一式を読む。メタデータが読めなければ null。</summary>
+    public CachedWork? LoadCached()
+    {
+        var meta = TryGetMetadata();
+        if (meta is null) return null;
+        return new CachedWork(meta, LoadAllCachedEpisodes(), LoadCachedImages());
+    }
+
+    /// <summary>キャッシュ済みエピソード全件（ファイル名順）。Titleはdtoから（旧キャッシュは空）。</summary>
+    public List<EpisodeContent> LoadAllCachedEpisodes()
+    {
+        var list = new List<EpisodeContent>();
+        if (!Directory.Exists(_dir)) return list;
+        foreach (var file in Directory.GetFiles(_dir, "ep_*.json").OrderBy(f => f, StringComparer.Ordinal))
+        {
+            try
+            {
+                var dto = JsonSerializer.Deserialize<EpisodeCacheEntry>(File.ReadAllText(file), JsonOpts);
+                if (dto is null) continue;
+                if (!int.TryParse(Path.GetFileName(file)[3..7], out var index)) continue;
+                var ep = new EpisodeRef { Index = index, Title = dto.Title ?? "", Url = dto.EpisodeUrl ?? "" };
+                list.Add(dto.ToContent(ep));
+            }
+            catch (Exception ex) when (ex is JsonException or IOException)
+            { CoreLog.Ignored($"話キャッシュを読めませんでした: {file}", ex); }
+        }
+        return list;
+    }
+
+    /// <summary>キャッシュ済み画像全件。デコード失败はスキップ。</summary>
+    public List<ScrapedImage> LoadCachedImages()
+    {
+        var list = new List<ScrapedImage>();
+        if (!Directory.Exists(_dir)) return list;
+        foreach (var file in Directory.GetFiles(_dir, "img_*.bin"))
+        {
+            try
+            {
+                var img = ImageProcessor.TryLoad(File.ReadAllBytes(file), Path.GetFileName(file));
+                if (img is not null) list.Add(img);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            { CoreLog.Ignored($"画像キャッシュを読めませんでした: {file}", ex); }
+        }
+        return list;
+    }
+
     // ---- パス計算 ----
 
     private string MetaPath() => Path.Combine(_dir, "meta.json");
@@ -170,13 +226,14 @@ public sealed class DownloadCache
 
     private sealed record EpisodeCacheEntry(
         string? EpisodeUrl,
+        string? Title,
         string? ForewordHtml,
         string BodyHtml,
         string? AfterwordHtml,
         string[]? ImageUrls)
     {
-        public static EpisodeCacheEntry From(EpisodeContent c) => new(
-            c.Ref.Url, c.ForewordHtml, c.BodyHtml, c.AfterwordHtml, [.. c.ImageUrls]);
+        public static EpisodeCacheEntry From(EpisodeContent c) =>
+            new(c.Ref.Url, c.Ref.Title, c.ForewordHtml, c.BodyHtml, c.AfterwordHtml, c.ImageUrls.ToArray());
 
         public EpisodeContent ToContent(EpisodeRef ep) => new()
         {

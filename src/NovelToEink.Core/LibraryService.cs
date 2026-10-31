@@ -14,11 +14,19 @@ public sealed class LibraryService
     public LibraryStore Store { get; private set; }
     public List<LibraryEntry> Entries { get; private set; }
 
-    public LibraryService(AppSettings settings)
+    // ワーカー（JobHandler）とUIスレッドがEntriesを共有するため、変更は_gate下で行う。
+    // UI側の列挙は SnapshotEntries()（コピー）を使うこと（レビューC-2）。
+    private readonly object _gate = new();
+    public List<LibraryEntry> SnapshotEntries() { lock (_gate) return Entries.ToList(); }
+
+    private readonly IGetScraper? _factory;
+
+    public LibraryService(AppSettings settings, IGetScraper? factory = null)
     {
         Settings = settings;
         Store = new LibraryStore(settings.OutputFolder);
         Entries = Store.Load();
+        _factory = factory;
     }
 
     /// <summary>保存先フォルダを切り替え、その配下のライブラリを読み込む。</summary>
@@ -41,7 +49,7 @@ public sealed class LibraryService
         int maxEpisodes = 0, bool forceRefreshMeta = false)
     {
         var dlOpt = new DownloadOptions { RequestDelayMs = Settings.RequestDelayMs, DownloadImages = true, MaxEpisodes = maxEpisodes };
-        using var service = new NovelDownloadService(dlOpt);
+        using var service = new NovelDownloadService(dlOpt, _factory);
         var cacheRoot = DownloadCache.GetCacheRoot(Settings.OutputFolder);
         return await service.DownloadAsync(url, epubOptions, dlOpt, progress, ct, cacheRoot, forceRefreshMeta);
     }
@@ -98,7 +106,7 @@ public sealed class LibraryService
         entry.LastCheckedAt = DateTimeOffset.Now;
         entry.Status = UpdateStatus.UpToDate;
 
-        if (existing == null) Entries.Add(entry);
+        lock (_gate) if (existing == null) Entries.Add(entry);
         Persist();
         return entry;
     }
@@ -159,11 +167,13 @@ public sealed class LibraryService
     }
 
     /// <summary>更新チェック：メタ情報と目次を取得して、完結状態・最終更新日・話数差分を反映する。</summary>
-    public async Task<bool> CheckAsync(LibraryEntry entry, CancellationToken ct)
+    public async Task<bool> CheckAsync(LibraryEntry entry, CancellationToken ct, IProgress<string>? progress = null)
     {
         var dlOpt = new DownloadOptions { RequestDelayMs = Settings.RequestDelayMs };
-        using var service = new NovelDownloadService(dlOpt);
+        using var service = new NovelDownloadService(dlOpt, _factory);
+        progress?.Report("メタデータ取得中...");
         var meta = await service.GetMetadataAsync(entry.Url, ct);
+        progress?.Report("目次取得中...");
         var toc = await service.GetTableOfContentsAsync(entry.Url, ct);
 
         entry.Title = meta.Title;
@@ -210,7 +220,7 @@ public sealed class LibraryService
 
     public void Remove(LibraryEntry entry, bool deleteFiles)
     {
-        Entries.Remove(entry);
+        lock (_gate) Entries.Remove(entry);
         if (deleteFiles)
         {
             foreach (var p in entry.EpubParts) TryDelete(p);
