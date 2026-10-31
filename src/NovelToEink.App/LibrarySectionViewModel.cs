@@ -238,16 +238,6 @@ public sealed class LibrarySectionViewModel : ViewModelBase
         return best.Url;
     }
 
-    private async Task<(ScrapedImage? Image, bool IsProvisional, bool Cancelled)> PickCoverAsync(NovelDownload novel)
-    {
-        if (_settings.AutoCover)
-            return (await Task.Run(() => CoverSelection.PickProvisional(novel, Options)), true, false);
-
-        var dlg = new CoverPickerWindow(novel, Options) { Owner = Application.Current.MainWindow };
-        if (dlg.ShowDialog() != true) return (null, false, true);
-        return (dlg.Result?.Image, false, false);
-    }
-
     private void PrefetchCoverCandidates(LibraryEntry entry)
     {
         var outputFolder = _settings.OutputFolder;
@@ -309,18 +299,6 @@ public sealed class LibrarySectionViewModel : ViewModelBase
         if (item == null) return Task.CompletedTask;
         EnqueueEntry(item, JobAction.Update);
         return Task.CompletedTask;
-    }
-
-    private async Task UpdateOne(LibraryItemVm item)
-    {
-        item.IsBusy = true; item.BusyText = "更新中…";
-        var dlProgress = MakeDlProgress();
-        var buildProgress = new Progress<string>(m => SetStatus("[EPUB] " + m));
-        try
-        {
-            await _service.UpdateAsync(item.Entry, dlProgress, buildProgress, _cts!.Token);
-        }
-        finally { item.IsBusy = false; item.Refresh(); }
     }
 
     public async Task ChangeCoverAsync(LibraryItemVm? item)
@@ -415,35 +393,6 @@ public sealed class LibrarySectionViewModel : ViewModelBase
         foreach (var item in targets) if (EnqueueEntry(item, JobAction.Convert)) enqueued++;
         SetStatus($"XTC一括変換 {enqueued} 件をキューに追加 — バックグラウンドで順次処理します。");
         return Task.CompletedTask;
-    }
-
-    private async Task<int> ConvertPartsAsync(LibraryItemVm item, IReadOnlyList<string> parts, CancellationToken token)
-    {
-        var options = XtcConversionUtility.BuildOptions(EpubSettings.ToEpubOptions());
-        var totalPages = 0;
-
-        item.IsBusy = true;
-        for (var index = 0; index < parts.Count; index++)
-        {
-            token.ThrowIfCancellationRequested();
-
-            var epubPath = parts[index];
-            var xtcPath = Path.ChangeExtension(epubPath, ".xtc");
-            var label = parts.Count > 1 ? $"{item.Title} ({index + 1}/{parts.Count})" : item.Title;
-
-            var progress = new Progress<XtcProgress>(p =>
-            {
-                ProgressIndeterminate = p.ChapterCount == 0;
-                if (p.ChapterCount > 0) ProgressValue = 100.0 * p.ChapterIndex / p.ChapterCount;
-                item.BusyText = $"XTC変換中… {p.PagesEmitted} ページ";
-                SetStatus($"[XTC] {label}  {p.ChapterIndex}/{p.ChapterCount} 章  {p.PagesEmitted} ページ");
-            });
-
-            var result = await XtcConversionUtility.ConvertEpubToXtcAsync(epubPath, xtcPath, options, progress, token);
-            totalPages += result.PageCount;
-        }
-
-        return totalPages;
     }
 
     private static List<string> GetEpubParts(LibraryItemVm item)

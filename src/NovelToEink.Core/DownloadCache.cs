@@ -155,7 +155,7 @@ public sealed class DownloadCache
         return list;
     }
 
-    /// <summary>キャッシュ済み画像全件。デコード失败はスキップ。</summary>
+    /// <summary>キャッシュ済み画像全件。デコード失敗はスキップ。</summary>
     public List<ScrapedImage> LoadCachedImages()
     {
         var list = new List<ScrapedImage>();

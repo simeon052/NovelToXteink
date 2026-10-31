@@ -258,4 +258,47 @@ public class EpubBuilderTests
         var imageEntries = archive.Entries.Where(e => e.FullName.StartsWith("OEBPS/images/")).ToList();
         Assert.NotEmpty(imageEntries);
     }
+
+    // Copilot review #14-M1: LibraryServiceはBuildSplit前にApplyTitleするはず
+    // （titleOverride=entry.Titleを尊重し、ファイル名/dc:titleに生タイトルを流用しない）
+    [Fact]
+    public void BuildSplit_RespectsTitleOverride_ForFilenameAndDcTitle()
+    {
+        using var dir = new TempDir();
+        var novel = new NovelDownload
+        {
+            Metadata = new NovelMetadata
+            {
+                Site = NovelSite.Kakuyomu,
+                WorkId = "w-override",
+                Url = "https://kakuyomu.jp/works/w-override",
+                Title = "[連載版]テスト作品",
+                Author = "著者",
+                IsCompleted = false
+            },
+            Episodes =
+            [
+                new EpisodeContent
+                {
+                    Ref = new EpisodeRef { Index = 1, Title = "第一章", Url = "https://kakuyomu.jp/works/w-override/episodes/1" },
+                    BodyHtml = "<p>本文</p>",
+                    ImageUrls = new List<string>()
+                }
+            ],
+            Images = new List<ScrapedImage>()
+        };
+        var options = new EpubOptions();
+
+        var parts = EpubBuilder.BuildSplit(novel, null, options, dir.Path, "{title}", null, null, "[連載版]テスト作品");
+
+        Assert.Single(parts);
+        Assert.Equal("テスト作品.epub", Path.GetFileName(parts[0].OutputPath));
+
+        using var archive = new ZipArchive(File.OpenRead(parts[0].OutputPath));
+        var opf = archive.GetEntry("OEBPS/content.opf");
+        Assert.NotNull(opf);
+        var opfDoc = XDocument.Load(opf.Open());
+        var dcNs = XNamespace.Get("http://purl.org/dc/elements/1.1/");
+        Assert.Equal("テスト作品", opfDoc.Root.Element(dcNs + "metadata")?.Element(dcNs + "title")?.Value);
+    }
 }

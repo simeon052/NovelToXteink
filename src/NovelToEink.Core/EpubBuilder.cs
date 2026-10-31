@@ -42,19 +42,22 @@ public static partial class EpubBuilder
         string outputDir,
         string nameTemplate,
         IProgress<string>? progress = null,
-        ProofreadingService? proofreading = null)
+        ProofreadingService? proofreading = null,
+        string? titleOverride = null)
     {
         var size = options.EpisodesPerFile > 0 ? options.EpisodesPerFile : int.MaxValue;
         var all = novel.Episodes;
         var partCount = Math.Max(1, (int)Math.Ceiling(all.Count / (double)size));
         var meta = novel.Metadata;
+        // レビュー#10-M1/#13-Major/#14-M1: library.json保存済み（ユーザー編集を尊重した）タイトルを優先。
+        var baseTitle = TitleCleaner.Clean(string.IsNullOrWhiteSpace(titleOverride) ? meta.Title : titleOverride);
         var results = new List<BuildResult>(partCount);
 
         for (var part = 1; part <= partCount; part++)
         {
             var subset = all.Skip((part - 1) * size).Take(size).ToList();
-            var displayTitle = partCount > 1 ? $"{meta.Title}（{part}/{partCount}）" : meta.Title;
-            var fileName = NameFormatter.Format(nameTemplate, meta.Title, meta.Author, part, partCount) + ".epub";
+            var displayTitle = partCount > 1 ? $"{baseTitle}（{part}/{partCount}）" : baseTitle;
+            var fileName = NameFormatter.Format(nameTemplate, baseTitle, meta.Author, part, partCount) + ".epub";
             var outPath = Path.Combine(outputDir, fileName);
             progress?.Report($"分割 {part}/{partCount} を生成中…");
             var result = BuildOne(meta, subset, novel.Images, cover, options, outPath, displayTitle, progress, part, partCount, proofreading);

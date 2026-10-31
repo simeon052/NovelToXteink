@@ -133,4 +133,14 @@ public class NameFormatterTests
         var name = NameFormatter.Format("{title}", "CON", "a", 1, 1);
         Assert.Equal("_CON", name);
     }
+
+    // Copilot review #9-M1: 予約名+拡張子（CON.txt 等）も _ プレフィックス対象
+    [Theory]
+    [InlineData("CON.txt", "_CON.txt")]
+    [InlineData("nul.epub", "_nul.epub")]
+    [InlineData("COM3.foo", "_COM3.foo")]
+    public void Sanitize_ReservedNameWithExtension_GetPrefix(string input, string expected)
+    {
+        Assert.Equal(expected, NameFormatter.Sanitize(input));
+    }
 }
