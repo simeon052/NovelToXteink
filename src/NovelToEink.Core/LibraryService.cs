@@ -101,14 +101,16 @@ public sealed class LibraryService
             foreach (var old in existing.EpubParts)
                 TryDelete(old);
 
-        var proofreading = epubOptions.EnableProofreading ? ProofreadingService.Load() : null;
-        var parts = EpubBuilder.BuildSplit(novel, cover, epubOptions, Settings.OutputFolder, nameTemplate, progress, proofreading);
-
+        // レビュー#10-M1/#13-Major: ApplyTitle（ユーザー編集尊重）をビルド前に適用し、
+        // 確定済みタイトルをファイル名・dc:title のoverrideとして渡す
         var entry = existing ?? new LibraryEntry { NameTemplate = nameTemplate };
         entry.Url = meta.Url;
         entry.Site = meta.Site;
         entry.WorkId = meta.WorkId;
         ApplyTitle(entry, meta.Title);
+
+        var proofreading = epubOptions.EnableProofreading ? ProofreadingService.Load() : null;
+        var parts = EpubBuilder.BuildSplit(novel, cover, epubOptions, Settings.OutputFolder, entry.NameTemplate, progress, proofreading, entry.Title);
         entry.Author = meta.Author;
         entry.Description = meta.Description;
         entry.IsCompleted = meta.IsCompleted;
@@ -218,10 +220,9 @@ public sealed class LibraryService
 
         // 旧パートを掃除してから再生成
         foreach (var old in entry.EpubParts) TryDelete(old);
+        ApplyTitle(entry, novel.Metadata.Title);   // レビュー#10-M1/#13-Major: ビルド前に確定
         var proofreading2 = entry.Options.EnableProofreading ? ProofreadingService.Load() : null;
-        var parts = EpubBuilder.BuildSplit(novel, cover, entry.Options, Settings.OutputFolder, entry.NameTemplate, buildProgress, proofreading2);
-
-        ApplyTitle(entry, novel.Metadata.Title);
+        var parts = EpubBuilder.BuildSplit(novel, cover, entry.Options, Settings.OutputFolder, entry.NameTemplate, buildProgress, proofreading2, entry.Title);
         entry.Author = novel.Metadata.Author;
         entry.Description = novel.Metadata.Description;
         entry.IsCompleted = novel.Metadata.IsCompleted;

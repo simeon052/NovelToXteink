@@ -35,7 +35,7 @@ public sealed class JobResult
 }
 
 /// <summary>ジョブ実行の抽象。JobQueue（Core）がテスト可能であるための seam。
-/// 実装は必ず ct を観察すること（観察しなければ q.Cancel() の Running 路径は
+/// 実装は必ず ct を観察すること（観察しなければ q.Cancel() の Running 経路は
 /// CTS を発火するだけで、状態は handler の戻り値で決定される）。</summary>
 public interface IJobHandler
 {

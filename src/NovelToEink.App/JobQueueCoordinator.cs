@@ -34,7 +34,7 @@ public sealed class JobQueueCoordinator
     public AppSettings Settings => _settings;
     public LibraryService Service => _service;
 
-    /// <summary>MainViewModel から UI 回调を注入される（status / display refresh）。</summary>
+    /// <summary>MainViewModel から UI コールバックを注入される（status / display refresh）。</summary>
     public void SetUi(Action<string> status, Action<JobRecord?> displayRefresh)
     {
         _status = status;
