@@ -40,6 +40,10 @@ public sealed class LibraryItemVm : ViewModelBase
     public string LastUpdatedText => Entry.LastUpdatedAt is { } d ? $"変換: {d:yyyy/MM/dd HH:mm}" : "変換: -";
     public string LastCheckedText => Entry.LastCheckedAt is { } d ? $"確認: {d:yyyy/MM/dd HH:mm}" : "確認: -";
 
+    /// <summary>キュー表示（例:「更新チェック 待ち」）。該当ジョブがなければ空。</summary>
+    public string QueueText { get => _queueText; set => Set(ref _queueText, value); }
+    private string _queueText = "";
+
     private string _nameTemplateEdit;
     /// <summary>編集中のファイル名テンプレート（「改名」で確定）。</summary>
     public string NameTemplateEdit { get => _nameTemplateEdit; set => Set(ref _nameTemplateEdit, value); }

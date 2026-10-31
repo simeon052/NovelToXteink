@@ -88,11 +88,22 @@ public sealed class LibraryStore
         Directory.CreateDirectory(folder);
     }
 
+    private List<LibraryEntry> _entries = new();
+
     /// <summary>
     /// library.json を読む。壊れていたら library.json.bad に退避して空で始める
     /// （退避しないと、次の <see cref="Save"/> で壊れたファイルごと元のデータを失う）。
     /// </summary>
-    public List<LibraryEntry> Load() => JsonFileStore.Load(FilePath, JsonOpts, () => new List<LibraryEntry>());
+    public List<LibraryEntry> Load() => _entries = JsonFileStore.Load(FilePath, JsonOpts, () => new List<LibraryEntry>());
+
+    /// <summary>URLから新規エントリを作り保存して返す（JobHandlerのCheck用）。</summary>
+    public LibraryEntry CreateEntry(string url)
+    {
+        var entry = new LibraryEntry { Url = url, AddedAt = DateTimeOffset.Now };
+        _entries.Add(entry);
+        Save(_entries);
+        return entry;
+    }
 
     public void Save(IEnumerable<LibraryEntry> entries)
     {

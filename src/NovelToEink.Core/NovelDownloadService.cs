@@ -9,22 +9,26 @@ public sealed class DownloadProgress
 }
 
 /// <summary>URL→スクレイパー選択、メタ/目次/本文/画像のダウンロードを統括する。</summary>
-public sealed class NovelDownloadService : IDisposable
+public sealed class NovelDownloadService : IDisposable, IGetScraper
 {
     private readonly HttpFetcher _fetcher;
     private readonly IReadOnlyList<INovelScraper> _scrapers;
+    private readonly IGetScraper? _factory;
 
-    public NovelDownloadService(DownloadOptions? download = null)
+    public NovelDownloadService(DownloadOptions? download = null, IGetScraper? factory = null)
     {
         download ??= new DownloadOptions();
         _fetcher = new HttpFetcher(download.RequestDelayMs);
         _scrapers = [new SyosetuScraper(_fetcher), new KakuyomuScraper(_fetcher)];
+        _factory = factory;
     }
 
     public bool IsSupported(string url) => _scrapers.Any(s => s.CanHandle(url));
 
+    /// <summary>URL→スクレイパー選択。factory（テストseam）があればそれを優先。</summary>
     public INovelScraper GetScraper(string url)
-        => _scrapers.FirstOrDefault(s => s.CanHandle(url))
+        => _factory?.GetScraper(url)
+           ?? _scrapers.FirstOrDefault(s => s.CanHandle(url))
            ?? throw new NotSupportedException("対応していないURLです。なろう(ncode.syosetu.com)かカクヨム(kakuyomu.jp)のURLを指定してください。");
 
     public Task<NovelMetadata> GetMetadataAsync(string url, CancellationToken ct = default)

@@ -17,6 +17,9 @@ public sealed class LibrarySectionViewModel : ViewModelBase
     private readonly LibraryService _service;
     private CancellationTokenSource? _cts;
 
+    /// <summary>JobQueueCoordinator（MainViewModelから注入。キュー経路はUIをブロックしない）。</summary>
+    public JobQueueCoordinator? Queue { get; set; }
+
     private enum SortKey { Converted, SiteUpdated, Title }
     private SortKey _sortKey = SortKey.Converted;
 
@@ -140,7 +143,7 @@ public sealed class LibrarySectionViewModel : ViewModelBase
         ConvertAllXtcCommand = convertAllXtc;
 
         ChooseFolderCommand = new RelayCommand(ChooseFolder, () => !IsBusy);
-        CancelCommand = new RelayCommand(() => _cts?.Cancel(), () => IsBusy);
+        CancelCommand = new RelayCommand(CancelActive, () => IsBusy || (Queue?.IsRunning ?? false));
         RemoveCommand = new RelayCommand<LibraryItemVm>(Remove, _ => !IsBusy);
         RenameCommand = new RelayCommand<LibraryItemVm>(Rename, _ => !IsBusy);
         CopyTitleCommand = new RelayCommand<LibraryItemVm>(CopyTitle, _ => !IsBusy);
@@ -158,46 +161,21 @@ public sealed class LibrarySectionViewModel : ViewModelBase
     /// <summary>中断可能な新しい操作を開始する（中断ボタンと共有される）。</summary>
     public CancellationTokenSource NewCts() => _cts = new CancellationTokenSource();
 
-    /// <summary>検索セクションで選択された URL をまとめて追加する（「追加」ボタンと同じ処理。表紙は自動）。</summary>
-    public async Task AddUrlsFromSearchAsync(IReadOnlyList<string> urls)
+    /// <summary>検索セクションで選択された URL をキューへ追加（「追加」ボタンと同じ処理。表紙は自動）。
+    /// UI をブロックせず、バックグラウンドワーカーループが順次処理する。</summary>
+    public Task AddUrlsFromSearchAsync(IReadOnlyList<string> urls)
     {
-        if (urls.Count == 0 || IsBusy) return;
-
-        IsBusy = true;
-        _cts = new CancellationTokenSource();
-        var dlProgress = MakeDlProgress();
-        var buildProgress = new Progress<string>(m => SetStatus("[EPUB] " + m));
-        int added = 0, failed = 0;
-        string? lastError = null;
-
-        try
+        if (urls.Count == 0 || Queue == null) return Task.CompletedTask;
+        int enqueued = 0, dup = 0;
+        foreach (var url in urls)
         {
-            SetStatus($"選択した {urls.Count} 件をダウンロード中…");
-            foreach (var url in urls)
-            {
-                _cts.Token.ThrowIfCancellationRequested();
-                try
-                {
-                    var novel = await _service.DownloadAsync(url, Options, dlProgress, _cts.Token);
-
-                    var cover = await Task.Run(() => CoverSelection.PickProvisional(novel, Options));
-                    var entry = await Task.Run(() =>
-                        _service.BuildAndRegister(novel, cover, Options, buildProgress, coverPending: true));
-                    UpsertItem(entry);
-                    added++;
-                    PrefetchCoverCandidates(entry);
-                }
-                catch (OperationCanceledException) { throw; }
-                catch (Exception ex) { failed++; lastError = ex.Message; }
-            }
-
-            var failInfo = failed > 0 ? $" / 失敗 {failed}" + (lastError != null ? $"（{lastError}）" : "") : "";
-            SetStatus(added > 0
-                ? $"一括ダウンロード完了（追加 {added} 件{failInfo}）。"
-                : "一括ダウンロードで 0 件。" + failInfo);
+            var entry = _service.SnapshotEntries().FirstOrDefault(e => e.Url == url);
+            var job = entry != null ? Queue.Enqueue(entry, JobAction.Check) : Queue.EnqueueUrl(url, JobAction.Download);
+            if (job == null) dup++; else enqueued++;
         }
-        catch (OperationCanceledException) { SetStatus($"中断しました（追加 {added} 件）。"); }
-        finally { EndBusy(); OnChanged(nameof(PickPendingCoversLabel)); }
+        SetStatus($"選択 {urls.Count} 件：キューに追加 {enqueued} 件" + (dup > 0 ? $"（重複 {dup}）" : "") +
+                  " — バックグラウンドで順次処理します。");
+        return Task.CompletedTask;
     }
 
     /// <summary>メインビューモデルの進捗を更新。</summary>
@@ -213,49 +191,27 @@ public sealed class LibrarySectionViewModel : ViewModelBase
     {
         var inputs = ParseInputs(_urlsText);
         if (inputs.Count == 0) { SetStatus("URLまたは作品タイトルを入力してください。"); return; }
+        if (Queue == null) { SetStatus("キューが設定されていません。"); return; }
 
-        IsBusy = true;
-        _cts = new CancellationTokenSource();
-        var dlProgress = MakeDlProgress();
-        var buildProgress = new Progress<string>(m => SetStatus("[EPUB] " + m));
-        int added = 0, skipped = 0, failed = 0;
+        int enqueued = 0, skipped = 0, failed = 0;
         string? lastError = null;
-
-        try
+        foreach (var input in inputs)
         {
-            foreach (var input in inputs)
+            try
             {
-                _cts.Token.ThrowIfCancellationRequested();
-                try
-                {
-                    var url = await ResolveInputAsync(input, _cts.Token);
-                    if (url == null) { skipped++; continue; }
-
-                    SetStatus($"ダウンロード中: {url}");
-                    var novel = await _service.DownloadAsync(url, Options, dlProgress, _cts.Token);
-
-                    var cover = await PickCoverAsync(novel);
-                    if (cover.Cancelled) { skipped++; continue; }
-
-                    SetStatus("EPUBを生成中…");
-                    var entry = await Task.Run(() =>
-                        _service.BuildAndRegister(novel, cover.Image, Options, buildProgress, coverPending: cover.IsProvisional));
-                    UpsertItem(entry);
-                    added++;
-
-                    if (cover.IsProvisional) PrefetchCoverCandidates(entry);
-                }
-                catch (OperationCanceledException) { throw; }
-                catch (Exception ex) { failed++; lastError = ex.Message; }
+                var url = await ResolveInputAsync(input, CancellationToken.None);
+                if (url == null) { skipped++; continue; }
+                var entry = _service.SnapshotEntries().FirstOrDefault(e => e.Url == url);
+                var job = entry != null ? Queue.Enqueue(entry, JobAction.Check) : Queue.EnqueueUrl(url, JobAction.Download);
+                if (job == null) skipped++; else enqueued++;
             }
-
-            UrlsText = "";
-            SetStatus($"追加 {added} 件" + (skipped > 0 ? $" / スキップ {skipped}" : "")
-                         + (failed > 0 ? $" / 失敗 {failed}（{lastError}）" : "") + "。"
-                         + (PendingCoverCount > 0 ? "表紙は「表紙をまとめて選ぶ」で選べます。" : ""));
+            catch (Exception ex) { failed++; lastError = ex.Message; }
         }
-        catch (OperationCanceledException) { SetStatus($"中断しました（追加 {added} 件）。"); }
-        finally { EndBusy(); OnChanged(nameof(PickPendingCoversLabel)); }
+
+        UrlsText = "";
+        SetStatus($"キューに追加 {enqueued} 件" + (skipped > 0 ? $" / スキップ {skipped}" : "")
+                     + (failed > 0 ? $" / 失敗 {failed}（{lastError}）" : "") +
+                     " — バックグラウンドで順次処理します。");
     }
 
     private async Task<string?> ResolveInputAsync(string input, CancellationToken token)
@@ -319,83 +275,40 @@ public sealed class LibrarySectionViewModel : ViewModelBase
         });
     }
 
-    public async Task CheckAllAsync()
+    /// <summary>全作品の更新チェックをキューへ追加（UIをブロックしない）。</summary>
+    public Task CheckAllAsync()
     {
-        IsBusy = true;
-        _cts = new CancellationTokenSource();
-        var updates = 0;
-        try
-        {
-            foreach (var item in Items)
-            {
-                _cts.Token.ThrowIfCancellationRequested();
-                item.IsBusy = true; item.BusyText = "確認中…";
-                try
-                {
-                    var has = await _service.CheckAsync(item.Entry, _cts.Token);
-                    if (has) updates++;
-                }
-                catch (OperationCanceledException) { throw; }
-                catch (Exception ex)
-                {
-                    item.Entry.Status = UpdateStatus.Error;
-                    CoreLog.Warn($"更新チェックに失敗: {item.Entry.Title}", ex);
-                }
-                finally { item.IsBusy = false; item.Refresh(); }
-            }
-            SetStatus(updates > 0
-                ? $"更新チェック完了：{updates} 作品に更新があります。"
-                : "更新チェック完了：すべて最新です。");
-        }
-        catch (OperationCanceledException) { SetStatus("更新チェックを中断しました。"); }
-        finally { EndBusy(); }
+        if (Queue == null || Items.Count == 0) return Task.CompletedTask;
+        int enqueued = 0;
+        foreach (var item in Items) if (EnqueueEntry(item, JobAction.Check)) enqueued++;
+        SetStatus($"更新チェックを {enqueued} 件キューに追加 — バックグラウンドで順次処理します。");
+        return Task.CompletedTask;
     }
 
-    public async Task UpdateAllAsync()
+    /// <summary>更新がある作品の更新をキューへ追加（UIをブロックしない）。</summary>
+    public Task UpdateAllAsync()
     {
-        IsBusy = true;
-        _cts = new CancellationTokenSource();
+        if (Queue == null) return Task.CompletedTask;
         var targets = Items.Where(i => i.HasUpdate).ToList();
-        var done = 0;
-        try
-        {
-            foreach (var item in targets)
-            {
-                _cts.Token.ThrowIfCancellationRequested();
-                await UpdateOne(item);
-                done++;
-            }
-            SetStatus($"{done} 作品を更新しました。");
-        }
-        catch (OperationCanceledException) { SetStatus($"更新を中断しました（{done} 件完了）。"); }
-        finally { EndBusy(); }
+        if (targets.Count == 0) { SetStatus("更新が必要な作品はありません。"); return Task.CompletedTask; }
+        int enqueued = 0;
+        foreach (var item in targets) if (EnqueueEntry(item, JobAction.Update)) enqueued++;
+        SetStatus($"更新を {enqueued} 件キューに追加 — バックグラウンドで順次処理します。");
+        return Task.CompletedTask;
     }
 
-    public async Task CheckItemAsync(LibraryItemVm? item)
+    public Task CheckItemAsync(LibraryItemVm? item)
     {
-        if (item == null) return;
-        IsBusy = true;
-        _cts = new CancellationTokenSource();
-        item.IsBusy = true; item.BusyText = "確認中…";
-        try
-        {
-            var has = await _service.CheckAsync(item.Entry, _cts.Token);
-            SetStatus(has ? $"「{item.Title}」に更新があります。" : $"「{item.Title}」は最新です。");
-        }
-        catch (OperationCanceledException) { SetStatus("中断しました。"); }
-        catch (Exception ex) { item.Entry.Status = UpdateStatus.Error; SetStatus("確認失敗：" + ex.Message); }
-        finally { item.IsBusy = false; item.Refresh(); EndBusy(); }
+        if (item == null) return Task.CompletedTask;
+        EnqueueEntry(item, JobAction.Check);
+        return Task.CompletedTask;
     }
 
-    public async Task UpdateItemAsync(LibraryItemVm? item)
+    public Task UpdateItemAsync(LibraryItemVm? item)
     {
-        if (item == null) return;
-        IsBusy = true;
-        _cts = new CancellationTokenSource();
-        try { await UpdateOne(item); SetStatus($"「{item.Title}」を更新しました。"); }
-        catch (OperationCanceledException) { SetStatus("更新を中断しました。"); }
-        catch (Exception ex) { SetStatus("更新失敗：" + ex.Message); }
-        finally { EndBusy(); }
+        if (item == null) return Task.CompletedTask;
+        EnqueueEntry(item, JobAction.Update);
+        return Task.CompletedTask;
     }
 
     private async Task UpdateOne(LibraryItemVm item)
@@ -484,71 +397,24 @@ public sealed class LibrarySectionViewModel : ViewModelBase
 
     // ---- XTC 変換 ----
 
-    public async Task ConvertXtcAsync(LibraryItemVm? item)
+    public Task ConvertXtcAsync(LibraryItemVm? item)
     {
-        if (item == null) return;
-
-        var parts = GetEpubParts(item);
-        if (parts.Count == 0) { SetStatus("EPUBファイルが見つかりません。先に更新してください。"); return; }
-
-        IsBusy = true;
-        _cts = new CancellationTokenSource();
-        try
-        {
-            var pages = await ConvertPartsAsync(item, parts, _cts.Token);
-            SetStatus($"XTC変換完了: {item.Title}（{parts.Count} ファイル / 計 {pages} ページ）");
-        }
-        catch (OperationCanceledException) { SetStatus("XTC変換をキャンセルしました。"); }
-        catch (Exception ex) { SetStatus("XTC変換に失敗しました：" + ex.Message); }
-        finally
-        {
-            item.IsBusy = false;
-            IsBusy = false;
-            _cts?.Dispose();
-            _cts = null;
-            ProgressIndeterminate = false;
-            ProgressValue = 0;
-        }
+        if (item == null || Queue == null) return Task.CompletedTask;
+        if (GetEpubParts(item).Count == 0) { SetStatus("EPUBファイルが見つかりません。先に更新してください。"); return Task.CompletedTask; }
+        if (EnqueueEntry(item, JobAction.Convert)) SetStatus($"XTC変換をキューに追加: {item.Title}");
+        else SetStatus($"「{item.Title}」はXTC変換がキュー済みです。");
+        return Task.CompletedTask;
     }
 
-    public async Task ConvertAllXtcAsync()
+    public Task ConvertAllXtcAsync()
     {
+        if (Queue == null) return Task.CompletedTask;
         var targets = Items.Where(i => GetEpubParts(i).Count > 0).ToList();
-        if (targets.Count == 0) { SetStatus("変換できるEPUBがありません。"); return; }
-
-        IsBusy = true;
-        _cts = new CancellationTokenSource();
-        int done = 0, failed = 0;
-        try
-        {
-            foreach (var item in targets)
-            {
-                _cts.Token.ThrowIfCancellationRequested();
-                try
-                {
-                    await ConvertPartsAsync(item, GetEpubParts(item), _cts.Token);
-                    done++;
-                }
-                catch (OperationCanceledException) { throw; }
-                catch (Exception ex)
-                {
-                    failed++;
-                    SetStatus($"{item.Title}: {ex.Message}");
-                }
-                finally { item.IsBusy = false; }
-            }
-            SetStatus($"XTC一括変換 完了: 成功 {done} / 失敗 {failed}");
-        }
-        catch (OperationCanceledException) { SetStatus($"XTC一括変換を中断しました（成功 {done}）。"); }
-        finally
-        {
-            foreach (var item in targets) item.IsBusy = false;
-            IsBusy = false;
-            _cts?.Dispose();
-            _cts = null;
-            ProgressIndeterminate = false;
-            ProgressValue = 0;
-        }
+        if (targets.Count == 0) { SetStatus("変換できるEPUBがありません。"); return Task.CompletedTask; }
+        int enqueued = 0;
+        foreach (var item in targets) if (EnqueueEntry(item, JobAction.Convert)) enqueued++;
+        SetStatus($"XTC一括変換 {enqueued} 件をキューに追加 — バックグラウンドで順次処理します。");
+        return Task.CompletedTask;
     }
 
     private async Task<int> ConvertPartsAsync(LibraryItemVm item, IReadOnlyList<string> parts, CancellationToken token)
@@ -613,6 +479,11 @@ public sealed class LibrarySectionViewModel : ViewModelBase
     private void Remove(LibraryItemVm? item)
     {
         if (item == null) return;
+        if (Queue != null && Queue.Jobs.Any(j => (j.State == JobState.Queued || j.State == JobState.Running) && JobMatches(j, item)))
+        {
+            SetStatus($"「{item.Title}」はキュー中で待機/実行中のため削除できません。");
+            return;
+        }
         var r = MessageBox.Show(
             $"「{item.Title}」をライブラリから削除します。\n\n「はい」=EPUBファイルも削除\n「いいえ」=一覧からのみ削除（ファイルは残す）",
             "削除の確認", MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
@@ -671,18 +542,66 @@ public sealed class LibrarySectionViewModel : ViewModelBase
     {
         Items.Clear();
         ApplySort();
+        RefreshQueueDisplay(null);
+    }
+
+    // ---- キュー連携 ----
+
+    /// <summary>ジョブが作品項目に対応するか（WorkId/Site 照合）。</summary>
+    private static bool JobMatches(JobRecord job, LibraryItemVm item)
+        => job.WorkId == item.Entry.WorkId && job.Site == item.Entry.Site
+        || (job.WorkId == "" && job.Url == item.Entry.Url); // EnqueueUrl由来（レビューM-5）
+
+    /// <summary>同一作品・同一アクションの待機ジョブがなければキューへ追加（重複防止）。</summary>
+    private bool EnqueueEntry(LibraryItemVm item, JobAction action)
+    {
+        if (Queue == null) return false;
+        var dup = Queue.Jobs.FirstOrDefault(j =>
+            (j.State == JobState.Queued || j.State == JobState.Running) && JobMatches(j, item) && j.Action == action);
+        if (dup != null) return false;
+        return Queue.Enqueue(item.Entry, action) != null; // Coreのdedup結果を返す（レビューM-2）
+    }
+
+    /// <summary>キュージョブ表示を項目に反映（調停役からUIスレッドで呼ばれる）。</summary>
+    public void RefreshQueueDisplay(JobRecord? job)
+    {
+        if (job == null) { foreach (var i in Items) i.QueueText = ""; return; }
+        var item = Items.FirstOrDefault(i => JobMatches(job, i));
+        if (item == null)
+        {
+            // ワーカーがEntriesへ新規登録した作品はまだ一覧に行がない（レビューC-1）
+            var entry = _service.SnapshotEntries().FirstOrDefault(e =>
+                e.Url == job.Url || (job.WorkId != "" && e.WorkId == job.WorkId && e.Site == job.Site));
+            if (entry == null) return;
+            UpsertItem(entry);
+            item = Items.First(i => i.Entry == entry);
+        }
+        item.QueueText = job.State switch
+        {
+            JobState.Queued => $"{JobPanelVm.Label(job.Action)} 待ち",
+            JobState.Running => $"{JobPanelVm.Label(job.Action)} 実行中",
+            _ => "",
+        };
+    }
+
+    /// <summary>進行中の処理（同期処理 or キュージョブ）を中断。</summary>
+    public void CancelActive()
+    {
+        // 両方中断：レガシー同期処理とキュー実行が並走し得る（レビューM-1）
+        _cts?.Cancel();
+        if (Queue != null && Queue.IsRunning) Queue.CancelCurrent();
     }
 
     private void ApplySort()
     {
         var sorted = _sortKey switch
         {
-            SortKey.SiteUpdated => _service.Entries
+            SortKey.SiteUpdated => _service.SnapshotEntries()
                 .OrderByDescending(e => e.SiteLastUpdated ?? DateTimeOffset.MinValue)
                 .ThenByDescending(e => e.LastUpdatedAt ?? e.AddedAt),
-            SortKey.Title => _service.Entries
+            SortKey.Title => _service.SnapshotEntries()
                 .OrderBy(e => e.Title, StringComparer.CurrentCultureIgnoreCase),
-            _ => _service.Entries
+            _ => _service.SnapshotEntries()
                 .OrderByDescending(e => e.LastUpdatedAt ?? e.AddedAt),
         };
 
