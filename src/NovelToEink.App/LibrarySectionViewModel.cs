@@ -576,6 +576,8 @@ public sealed class LibrarySectionViewModel : ViewModelBase
             UpsertItem(entry);
             item = Items.First(i => i.Entry == entry);
         }
+        else if (job.State != JobState.Queued && job.State != JobState.Running)
+            item.Refresh(); // 完了/失敗でバッジ（StatusText/HasUpdate）を再評価。既存itemはRefreshされず「更新あり」が残るバグ（E2E報告）
         item.QueueText = job.State switch
         {
             JobState.Queued => $"{JobPanelVm.Label(job.Action)} 待ち",
