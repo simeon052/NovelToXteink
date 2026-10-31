@@ -435,15 +435,27 @@ public class JobQueueTests
         var handler = new StubJobHandler();
         var order = new List<string>();
         handler.Next = (j, ct) => { lock (order) order.Add(j.WorkId); return Task.FromResult(JobResult.Ok()); };
+
+        // タイミングでなくシグナルで「wait window 中」を確定させる（CI runner の
+        // スケジュール遅延で Task.Delay(50) が window 後に届くと flaky になる）。
+        // FakeClock は進まないため window は full（1000ms） guarantees。
+        var windowStarted = new TaskCompletionSource();
+        int delayCalls = 0;
+        Func<TimeSpan, CancellationToken, Task> delay = async (w, ct) =>
+        {
+            delayCalls++;
+            if (delayCalls == 1) windowStarted.TrySetResult(); // prev は window なし → 1回目が a の window
+            await Task.Delay(w, ct);
+        };
         var q = new JobQueue(Path.Combine(dir.Path, "jobs.json"), handler, new FakeClock(),
-            Task.Delay, maxRetries: 3, minJobIntervalMs: 150);
+            delay, maxRetries: 3, minJobIntervalMs: 1000);
         q.Load();
-        q.Enqueue("prev", JobAction.Download);   // 直前完了なしで走るので dummy で wait window を作る
+        q.Enqueue("prev", JobAction.Download);   // FakeClock 下 elapsed 巨大 → wait 0 で即実行
         var a = q.Enqueue("a", JobAction.Download)!;
         var b = q.Enqueue("b", JobAction.Download)!;
 
         var loop = Task.Run(() => q.RunLoopAsync(CancellationToken.None));
-        await Task.Delay(50);                    // prev 処理済み、loop は a の wait（150ms）中
+        await windowStarted.Task;                // a の wait window に入ったことが確定
         int cleared = q.ClearQueue();            // wait中に ClearQueue → Cancelled化语义（C-3修正）
         await Task.WhenAny(loop, Task.Delay(5000));
 
