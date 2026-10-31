@@ -16,6 +16,22 @@ public sealed class CountToVisibility : IValueConverter
         => throw new NotSupportedException();
 }
 
+/// <summary>boolをVisibilityに変換。parameter="invert"で反転。</summary>
+public sealed class BoolToVisibility : IValueConverter
+{
+    public static readonly BoolToVisibility Instance = new();
+
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        bool b = value is bool v && v;
+        if (parameter is string p && p == "invert") b = !b;
+        return b ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}
+
 /// <summary>Xteink 端末を表示名（解像度つき）に変換する。</summary>
 public sealed class DeviceNameConverter : IValueConverter
 {

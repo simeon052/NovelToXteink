@@ -43,6 +43,14 @@ public class TitleCleanerTests
     }
 
     [Fact]
+    public void Clean_RemovesSerialVersionTag()
+    {
+        Assert.Equal("物語", TitleCleaner.Clean("[連載版]物語"));
+        Assert.Equal("物語", TitleCleaner.Clean("【連載版】物語"));
+        Assert.Equal("連載版の物語", TitleCleaner.Clean("連載版の物語")); // 括弧なしはそのまま
+    }
+
+    [Fact]
     public void Clean_EmptyAndNullSafe()
     {
         Assert.Equal("", TitleCleaner.Clean(""));

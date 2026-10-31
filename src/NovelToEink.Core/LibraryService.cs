@@ -40,6 +40,16 @@ public sealed class LibraryService
 
     public void Persist() => Store.Save(Entries);
 
+    /// <summary>タイトルを更新して library.json に保存する（UIスレッドからの編集。ゲート下でワーカーと直列化）。</summary>
+    public void UpdateTitle(LibraryEntry entry, string title)
+    {
+        lock (_gate)
+        {
+            entry.Title = title;
+            Store.Save(Entries);
+        }
+    }
+
     public bool IsSupported(string url) => new[] { "ncode.syosetu.com", "novel18.syosetu.com", "kakuyomu.jp" }
         .Any(h => url.Contains(h, StringComparison.OrdinalIgnoreCase));
 

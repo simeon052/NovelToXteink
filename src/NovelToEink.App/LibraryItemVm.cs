@@ -11,14 +11,42 @@ public sealed class LibraryItemVm : ViewModelBase
 {
     public LibraryEntry Entry { get; }
 
-    public LibraryItemVm(LibraryEntry entry)
+    private readonly Action<LibraryEntry, string> _persistTitle;
+
+    public LibraryItemVm(LibraryEntry entry, Action<LibraryEntry, string> persistTitle)
     {
         Entry = entry;
+        _persistTitle = persistTitle;
         _nameTemplateEdit = entry.NameTemplate;
         LoadThumbnail();
     }
 
     public string Title => Entry.Title;
+
+    // ---- タイトル編集（ダブルクリック） ----
+    private bool _editingTitle;
+    public bool EditingTitle { get => _editingTitle; set => Set(ref _editingTitle, value); }
+
+    private string _titleEdit = "";
+    public string TitleEdit { get => _titleEdit; set => Set(ref _titleEdit, value); }
+
+    public void StartTitleEdit()
+    {
+        TitleEdit = Entry.Title;
+        EditingTitle = true;
+    }
+
+    /// <summary>編集中のタイトルを確定して保存。空文字は確定しない（取消扱い）。</summary>
+    public void CommitTitleEdit()
+    {
+        if (!EditingTitle) return;
+        var t = TitleEdit.Trim();
+        if (t.Length > 0 && t != Entry.Title) _persistTitle(Entry, t);
+        EditingTitle = false;
+        OnChanged(nameof(Title));
+    }
+
+    public void CancelTitleEdit() => EditingTitle = false;
     public string Author => string.IsNullOrWhiteSpace(Entry.Author) ? "(作者不明)" : Entry.Author;
     public string SiteLabel => Entry.Site switch
     {
