@@ -24,7 +24,7 @@ public sealed class BoolToVisibility : IValueConverter
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         bool b = value is bool v && v;
-        if (parameter is string p && p == "invert") b = !b;
+        if (parameter is string p && p.Equals("invert", StringComparison.OrdinalIgnoreCase)) b = !b;
         return b ? Visibility.Visible : Visibility.Collapsed;
     }
 

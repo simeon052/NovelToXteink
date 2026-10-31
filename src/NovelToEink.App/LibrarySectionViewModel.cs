@@ -611,6 +611,7 @@ public sealed class LibrarySectionViewModel : ViewModelBase
         foreach (var e in sorted)
         {
             var vm = new LibraryItemVm(e, _service.UpdateTitle);
+            vm.TitleEditError += SetStatus;
             vm.SetCoverCandidateCount(CoverCandidateCache.CountCandidates(_settings.OutputFolder, e.Site, e.WorkId));
             Items.Add(vm);
         }
@@ -624,7 +625,12 @@ public sealed class LibrarySectionViewModel : ViewModelBase
     {
         var existing = Items.FirstOrDefault(i => i.Entry == entry);
         if (existing != null) existing.Refresh();
-        else Items.Insert(0, new LibraryItemVm(entry, _service.UpdateTitle));
+        else
+        {
+            var vm = new LibraryItemVm(entry, _service.UpdateTitle);
+            vm.TitleEditError += SetStatus;
+            Items.Insert(0, vm);
+        }
     }
 
     // ---- ユーティリティ ----

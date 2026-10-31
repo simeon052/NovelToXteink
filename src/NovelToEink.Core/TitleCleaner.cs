@@ -7,7 +7,12 @@ namespace NovelToEink.Core;
 public static class TitleCleaner
 {
     private static readonly Regex MarketingTag = new(
-        @"(?:【|〔|\[)[^〕\]】]*?(?:発売|書籍化|コミカライズ|漫画化|マンガ化|アニメ化|ドラマ化|映画化|電子書籍|連載版)[^〕\]】]*(?:〕|\]|】)");
+        $@"(?:【{B}*?{Kw}{B}*?】|〔{B}*?{Kw}{B}*?〕|\[{B}*?{Kw}{B}*?\])",
+        RegexOptions.IgnoreCase);
+    // Kw は必ず (?: ) でグループ化（alternationが括弧ペアを外へ壊すのを防止）
+    private const string Kw = "(?:発売|書籍化|コミカライズ|漫画化|マンガ化|アニメ化|ドラマ化|映画化|電子書籍|連載版)";
+    // B は全括弧文字を排除 → 異種括弧の混成マッチ（例: [〜】）を防ぐ
+    private const string B = "[^【〕〔\\[\\]]";
 
     public static string? Clean(string? title)
     {

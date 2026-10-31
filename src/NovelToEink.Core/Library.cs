@@ -20,6 +20,8 @@ public sealed class LibraryEntry
     public NovelSite Site { get; set; }
     public string WorkId { get; set; } = "";
     public string Title { get; set; } = "";
+    /// <summary>ユーザーが編集で確定したタイトル。trueなら更新チェックのCleanで書き戻さない（レビューC-1）。</summary>
+    public bool TitleUserEdited { get; set; }
     public string Author { get; set; } = "";
     public string Description { get; set; } = "";
 
@@ -109,7 +111,20 @@ public sealed class LibraryStore
     {
         Directory.CreateDirectory(Folder);
         var json = JsonSerializer.Serialize(entries.ToList(), JsonOpts);
-        File.WriteAllText(FilePath, json);
+        // アトミック保存（レビューM-1）: 一時ファイルへ書いてからスワップ。
+        //  concurrent writer による部分状態（破損JSON）を防ぐ。
+        var tmp = FilePath + ".tmp";
+        File.WriteAllText(tmp, json);
+        try
+        {
+            if (File.Exists(FilePath)) File.Replace(tmp, FilePath, null);
+            else File.Move(tmp, FilePath);
+        }
+        catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is PlatformNotSupportedException)
+        {
+            // File.Replace 非対応ファイルシステム（FAT等）は上書きムーブへフォールバック
+            File.Move(tmp, FilePath, overwrite: true);
+        }
     }
 }
 

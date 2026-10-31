@@ -22,7 +22,7 @@ public partial class MainWindow : Window
         vm.StartTitleEdit();
         var grid = VisualTreeHelper.GetParent(fe) as Grid;
         var box = grid?.Children.OfType<TextBox>().FirstOrDefault();
-        if (box == null) return;
+        if (box == null) { vm.CancelTitleEdit(); return; }
         box.Dispatcher.BeginInvoke(new Action(() =>
         {
             box.Focus();

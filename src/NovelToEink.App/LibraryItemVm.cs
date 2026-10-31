@@ -41,10 +41,23 @@ public sealed class LibraryItemVm : ViewModelBase
     {
         if (!EditingTitle) return;
         var t = TitleEdit.Trim();
-        if (t.Length > 0 && t != Entry.Title) _persistTitle(Entry, t);
+        if (t.Length > 0 && t != Entry.Title)
+        {
+            try { _persistTitle(Entry, t); }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+            {
+                // レビューM-2: 保存失敗でクラッシュしない。編集状態を維持して再試行可能にし、エラーを報告。
+                CoreLog.Error("タイトル保存失敗", ex);
+                TitleEditError?.Invoke($"タイトル保存失敗: {ex.Message}");
+                return;
+            }
+        }
         EditingTitle = false;
         OnChanged(nameof(Title));
     }
+
+    /// <summary>保存失敗等のエラー通知（ステータスバーへ）。レビューM-2。</summary>
+    public event Action<string>? TitleEditError;
 
     public void CancelTitleEdit() => EditingTitle = false;
     public string Author => string.IsNullOrWhiteSpace(Entry.Author) ? "(作者不明)" : Entry.Author;

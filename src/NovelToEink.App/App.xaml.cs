@@ -19,6 +19,12 @@ public partial class App : Application
             if (level == "ERROR" && Current?.MainWindow?.DataContext is MainViewModel vm)
                 Current.Dispatcher.BeginInvoke(() => vm.StatusText = text);
         };
+        // レビューM-2: UIスレッドでの未処理例外でクラッシュしない（ログ＋ステータス表示）。
+        DispatcherUnhandledException += (s, e) =>
+        {
+            CoreLog.Error("未処理の例外", e.Exception);
+            e.Handled = true;
+        };
         base.OnStartup(e);
     }
 }
