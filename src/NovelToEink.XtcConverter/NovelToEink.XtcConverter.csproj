@@ -2,6 +2,9 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
+    <!-- Keep self-contained mode consistent with NovelToEink.App when packaging for Store -->
+    <RuntimeIdentifier Condition="'$(PackageForStore)' == 'true'">win-x64</RuntimeIdentifier>
+    <SelfContained Condition="'$(PackageForStore)' == 'true'">true</SelfContained>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>

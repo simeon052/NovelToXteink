@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ProjectReference Include="..\NovelToEink.App\NovelToEink.App.csproj">
+      <Project>{6a2f7445-2d90-4b9a-9006-27b2c236e1e6}</Project>
+      <Name>NovelToEink.App</Name>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+    </ProjectReference>
+  </ItemGroup>
+
+  <PropertyGroup>
+    <Configuration Condition="'$(Configuration)' == ''">Release</Configuration>
+    <Platform Condition="'$(Platform)' == ''">x64</Platform>
+    <EntryPoint>NovelToEink.App.exe</EntryPoint>
+    <PackageName>NovelToXteink</PackageName>
+    <PackageVersion>1.0.0.0</PackageVersion>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <TargetPlatformVersion>10.0</TargetPlatformVersion>
+    <!-- Partner Center re-signs MSIX after certification, so no signing here -->
+    <AppxPackageSigningEnabled>False</AppxPackageSigningEnabled>
+    <AppxBundlePlatforms>x64</AppxBundlePlatforms>
+    <WBuildTarget Condition="'$(WBuildTarget)' == ''">Package</WBuildTarget>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <AppxManifest Include="Package.appxmanifest">
+      <SubType>Designer</SubType>
+    </AppxManifest>
+    <Content Include="Assets\StoreLogo.png" />
+    <Content Include="Assets\Square44x44Logo.png" />
+    <Content Include="Assets\Square150x150Logo.png" />
+    <Content Include="Assets\Square310x310Logo.png" />
+  </ItemGroup>
+
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" Condition="exists('$(VCTargetsPath)\Microsoft.Cpp.Default.props')" />
+  <PropertyGroup Label="Configuration">
+    <PlatformToolset>v143</PlatformToolset>
+    <ConfigurationType>ApplicationPackage</ConfigurationType>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" Condition="exists('$(VCTargetsPath)\Microsoft.Cpp.targets')" />
+</Project>

@@ -12,6 +12,11 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <ApplicationIcon>app.ico</ApplicationIcon>
+    <!-- Self-contained only for Store packaging (MSIX bundles the .NET runtime;
+         Store users otherwise need .NET 10 Desktop Runtime installed).
+         Build via: msbuild NovelToEink.App.Packaging.wapproj /p:PackageForStore=true -->
+    <RuntimeIdentifier Condition="'$(PackageForStore)' == 'true'">win-x64</RuntimeIdentifier>
+    <SelfContained Condition="'$(PackageForStore)' == 'true'">true</SelfContained>
   </PropertyGroup>
 
 </Project>

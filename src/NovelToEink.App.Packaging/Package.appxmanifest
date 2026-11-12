@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Package
+  xmlns="http://schemas.openxmlformats.org/appxmanifest/4.0"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  IgnorableNamespaces="uap">
+
+  <Identity
+    Name="NovelToXteink"
+    Publisher="CN=simeon052"
+    Version="1.0.0.0" />
+
+  <Properties>
+    <DisplayName>NovelToXteink</DisplayName>
+    <PublisherDisplayName>simeon052</PublisherDisplayName>
+    <Logo>Assets\StoreLogo.png</Logo>
+  </Properties>
+
+  <Dependencies>
+    <TargetDeviceFamily
+      Name="Windows.Desktop"
+      MinVersion="10.0.17763.0"
+      MaxVersionTested="10.0.26100.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource LangName="en-US" />
+    <Resource LangName="ja-JP" />
+  </Resources>
+
+  <Applications>
+    <Application Id="NovelToXteink"
+      Executable="NovelToEink.App.exe"
+      EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements
+        DisplayName="NovelToXteink"
+        Description="EPUB to XTC (Xteink) converter"
+        BackgroundColor="transparent"
+        Square150x150Logo="Assets\Square150x150Logo.png"
+        Square44x44Logo="Assets\Square44x44Logo.png">
+        <uap:DefaultTile
+          ShortName="NovelToXteink"
+          Square71x71Logo="Assets\Square150x150Logo.png"
+          Square310x310Logo="Assets\Square310x310Logo.png" />
+      </uap:VisualElements>
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <!-- EPUB input / XTC output are in user folders; MSIX sandbox needs this capability -->
+    <uap:Capability Name="broadFileSystemAccess" />
+  </Capabilities>
+</Package>
