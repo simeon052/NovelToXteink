@@ -6,12 +6,12 @@
 
   <Identity
     Name="NovelToXteink"
-    Publisher="CN=simeon052"
+    Publisher="CN=Simeon052"
     Version="1.0.0.0" />
 
   <Properties>
     <DisplayName>NovelToXteink</DisplayName>
-    <PublisherDisplayName>simeon052</PublisherDisplayName>
+    <PublisherDisplayName>Simeon052</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>
 
