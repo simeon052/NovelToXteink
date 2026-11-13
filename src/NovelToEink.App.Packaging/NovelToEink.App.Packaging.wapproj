@@ -1,5 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\NovelToEink.App\NovelToEink.App.csproj">
       <Project>{6a2f7445-2d90-4b9a-9006-27b2c236e1e6}</Project>
@@ -11,6 +21,12 @@
   <PropertyGroup>
     <Configuration Condition="'$(Configuration)' == ''">Release</Configuration>
     <Platform Condition="'$(Platform)' == ''">x64</Platform>
+    <!-- toolset解決はファイル評価順依存のため、Importより前无条件で設定 -->
+    <PlatformToolset>v145</PlatformToolset>
+    <ConfigurationType>ApplicationPackage</ConfigurationType>
+    <!-- OutputPathチェックが条件付きPropertyGroupより早期に走るため無条件で指定 -->
+    <BaseOutputPath>bin\</BaseOutputPath>
+    <OutputPath>bin\$(Configuration)\</OutputPath>
     <EntryPoint>NovelToEink.App.exe</EntryPoint>
     <PackageName>NovelToXteink</PackageName>
     <PackageVersion>1.0.0.0</PackageVersion>
@@ -20,6 +36,13 @@
     <AppxPackageSigningEnabled>False</AppxPackageSigningEnabled>
     <AppxBundlePlatforms>x64</AppxBundlePlatforms>
     <WBuildTarget Condition="'$(WBuildTarget)' == ''">Package</WBuildTarget>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <OutputPath>bin\x64\Release\</OutputPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <OutputPath>bin\x64\Debug\</OutputPath>
   </PropertyGroup>
 
   <ItemGroup>
@@ -33,9 +56,18 @@
   </ItemGroup>
 
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" Condition="exists('$(VCTargetsPath)\Microsoft.Cpp.Default.props')" />
-  <PropertyGroup Label="Configuration">
-    <PlatformToolset>v143</PlatformToolset>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <PlatformToolset>v145</PlatformToolset>
     <ConfigurationType>ApplicationPackage</ConfigurationType>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <PlatformToolset>v145</PlatformToolset>
+    <ConfigurationType>ApplicationPackage</ConfigurationType>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" Condition="exists('$(VCTargetsPath)\Microsoft.Cpp.props')" />
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" Condition="exists('$(VCTargetsPath)\Microsoft.Cpp.targets')" />
+  <ImportGroup Label="ExtensionTargets">
+    <Import Condition="exists('$(MSBuildExtensionsPath)\Microsoft\VisualStudio\v18.0\AppxPackage\Microsoft.AppXPackage.Targets')"
+      Project="$(MSBuildExtensionsPath)\Microsoft\VisualStudio\v18.0\AppxPackage\Microsoft.AppXPackage.Targets" />
+  </ImportGroup>
 </Project>
