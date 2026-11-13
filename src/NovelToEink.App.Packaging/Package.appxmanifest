@@ -5,8 +5,8 @@
   IgnorableNamespaces="uap">
 
   <Identity
-    Name="NovelToXteink"
-    Publisher="CN=Simeon052"
+    Name="31156Simeon052.NovelToXteink"
+    Publisher="CN=82D27054-24F7-47CD-ACC6-63614C30CAA4"
     Version="1.0.0.0" />
 
   <Properties>
