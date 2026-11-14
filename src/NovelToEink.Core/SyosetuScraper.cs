@@ -27,7 +27,7 @@ public sealed partial class SyosetuScraper(HttpFetcher fetcher) : INovelScraper
     private static (string host, string ncode) Parse(string url)
     {
         var m = UrlRegex().Match(url);
-        if (!m.Success) throw new ArgumentException($"なろうのURLとして解釈できません: {url}");
+        if (!m.Success) throw new ArgumentException(Locale.T("syosetu_url_fail_fmt", url));
         return (m.Groups[1].Value.ToLowerInvariant(), m.Groups[2].Value.ToLowerInvariant());
     }
 
@@ -42,12 +42,12 @@ public sealed partial class SyosetuScraper(HttpFetcher fetcher) : INovelScraper
         var root = doc.DocumentNode;
 
         var title = HtmlHelper.TextOf(root, ".//h1[contains(@class,'p-novel__title')]", ".//p[contains(@class,'novel_title')]", ".//h1")
-                    ?? "（無題）";
+                    ?? Locale.T("untitled");
         var author = HtmlHelper.TextOf(root, ".//div[contains(@class,'p-novel__author')]//a",
                                    ".//div[contains(@class,'p-novel__author')]",
                                    ".//div[@class='novel_writername']//a",
                                    ".//div[@class='novel_writername']") ?? "";
-        author = author.Replace("作者：", "").Replace("作者:", "").Trim();
+        author = author.Replace(Locale.T("author_label2"), "").Replace(Locale.T("author_label"), "").Trim();
 
         var desc = HtmlHelper.TextOf(root, ".//div[@id='novel_ex']", ".//div[contains(@class,'p-novel__summary')]") ?? "";
 

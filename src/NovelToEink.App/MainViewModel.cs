@@ -37,12 +37,13 @@ public sealed class MainViewModel : ViewModelBase
 
     /// <summary>キューの要約行（例: キュー: 待ち 3 / 実行中 1）。</summary>
     public string QueueStatusLine => Queue is null ? ""
-        : $"キュー: 待ち {Queue.QueuedCount} / 実行中 {(Queue.IsRunning ? 1 : 0)}";
+        : Locale.T("queue_status_fmt", Queue.QueuedCount, (Queue.IsRunning ? 1 : 0));
 
     public MainViewModel()
     {
         _settings = AppSettings.Load();
         _service = new LibraryService(_settings);
+        Locale.SetOverride(_settings.Language);
 
         // 設定サブビューモデルを初期化
         XtcSettings = new XtcSettingsViewModel(_settings);
@@ -156,7 +157,22 @@ public sealed class MainViewModel : ViewModelBase
             OnChanged(nameof(DarkModeToggleLabel));
         }
     }
-    public string DarkModeToggleLabel => _settings.IsDarkMode ? "☀ ライト" : "🌙 ダーク";
+    public string DarkModeToggleLabel => _settings.IsDarkMode ? Locale.T("light_mode") : Locale.T("dark_mode");
+
+    /// <summary>言語コンボの選択 index: 0=auto(OS) / 1=ja / 2=en。</summary>
+    public int LanguageIndex
+    {
+        get => _settings.Language switch { "ja" => 1, "en" => 2, _ => 0 };
+        set
+        {
+            var v = value switch { 1 => "ja", 2 => "en", _ => "auto" };
+            if (_settings.Language == v) return;
+            _settings.Language = v;
+            Locale.SetOverride(v);
+            _settings.Save();
+            OnChanged(nameof(LanguageIndex));
+        }
+    }
 
     // ---- 状態 ----
 
@@ -166,7 +182,7 @@ public sealed class MainViewModel : ViewModelBase
     public double ProgressValue => Library.ProgressValue;
     public bool ProgressIndeterminate => Library.ProgressIndeterminate;
 
-    private string _statusText = "URL、または作品タイトルを入力して「ライブラリに追加」。1行に1件で、まとめて追加できます。";
+    private string _statusText = Locale.T("input_hint");
     public string StatusText { get => _statusText; set { Set(ref _statusText, value); OnChanged(nameof(QueueStatusLine)); } }
 
     // ---- コマンド（公開） ----
@@ -259,7 +275,7 @@ public sealed class MainViewModel : ViewModelBase
         var path = NovelToEink.Core.ProofreadingService.DefaultPath;
         _ = NovelToEink.Core.ProofreadingService.Load();
         try { Process.Start(new ProcessStartInfo(path) { UseShellExecute = true }); }
-        catch (Exception ex) { StatusText = "ルールファイルを開けません：" + ex.Message; }
+        catch (Exception ex) { StatusText = Locale.T("rules_fail_prefix") + ex.Message; }
     }
 
     private void ToggleDarkMode() => IsDarkMode = !IsDarkMode;

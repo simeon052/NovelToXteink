@@ -129,8 +129,8 @@ public sealed class XtcSettingsViewModel : ViewModelBase
     {
         var dlg = new OpenFileDialog
         {
-            Title = "XTC描画に使うフォントを選択",
-            Filter = "フォントファイル (*.ttf;*.ttc;*.otf;*.otc)|*.ttf;*.ttc;*.otf;*.otc|すべてのファイル (*.*)|*.*",
+            Title = Locale.T("font_choose_desc"),
+            Filter = Locale.T("font_filter"),
             InitialDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "Fonts"),
         };
         if (dlg.ShowDialog() != true) return;
@@ -140,11 +140,11 @@ public sealed class XtcSettingsViewModel : ViewModelBase
 
         // 一覧にない場合は選択肢として足しておく。
         if (!_fonts.Any(f => string.Equals(f.FilePath, dlg.FileName, StringComparison.OrdinalIgnoreCase)))
-            _fonts.Add(new XtcFont(Path.GetFileNameWithoutExtension(dlg.FileName), dlg.FileName, "指定"));
+            _fonts.Add(new XtcFont(Path.GetFileNameWithoutExtension(dlg.FileName), dlg.FileName, Locale.T("FontSpecified")));
 
         OnChanged(nameof(XtcFonts));
         OnChanged(nameof(XtcFont));
-        statusMessage($"XTCフォント: {Path.GetFileName(dlg.FileName)}");
+        statusMessage(Locale.T("font_selected_fmt", Path.GetFileName(dlg.FileName)));
     }
 
     /// <summary>設定が外部から差し替わったとき（インポート）に、すべての項目の再読み込みを画面へ伝える。</summary>

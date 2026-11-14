@@ -75,8 +75,8 @@ public sealed class LibrarySectionViewModel : ViewModelBase
 
     /// <summary>「表紙をまとめて選ぶ」ラベル。</summary>
     public string PickPendingCoversLabel => PendingCoverCount > 0
-        ? $"🖼 表紙をまとめて選ぶ ({PendingCoverCount})"
-        : "🖼 表紙をまとめて選ぶ";
+        ? Locale.T("pick_bulk_fmt", PendingCoverCount)
+        : Locale.T("cover_bulk_btn");
 
     // ---- ソート ----
 
@@ -173,8 +173,8 @@ public sealed class LibrarySectionViewModel : ViewModelBase
             var job = entry != null ? Queue.Enqueue(entry, JobAction.Check) : Queue.EnqueueUrl(url, JobAction.Download);
             if (job == null) dup++; else enqueued++;
         }
-        SetStatus($"選択 {urls.Count} 件：キューに追加 {enqueued} 件" + (dup > 0 ? $"（重複 {dup}）" : "") +
-                  " — バックグラウンドで順次処理します。");
+        SetStatus(Locale.T("selected_fmt", urls.Count, enqueued) + (dup > 0 ? Locale.T("dup_fmt", dup) : "") +
+                  Locale.T("bg_suffix"));
         return Task.CompletedTask;
     }
 
@@ -190,8 +190,8 @@ public sealed class LibrarySectionViewModel : ViewModelBase
     public async Task AddAsync()
     {
         var inputs = ParseInputs(_urlsText);
-        if (inputs.Count == 0) { SetStatus("URLまたは作品タイトルを入力してください。"); return; }
-        if (Queue == null) { SetStatus("キューが設定されていません。"); return; }
+        if (inputs.Count == 0) { SetStatus(Locale.T("enter_url_title")); return; }
+        if (Queue == null) { SetStatus(Locale.T("queue_not_set")); return; }
 
         int enqueued = 0, skipped = 0, failed = 0;
         string? lastError = null;
@@ -209,9 +209,9 @@ public sealed class LibrarySectionViewModel : ViewModelBase
         }
 
         UrlsText = "";
-        SetStatus($"キューに追加 {enqueued} 件" + (skipped > 0 ? $" / スキップ {skipped}" : "")
-                     + (failed > 0 ? $" / 失敗 {failed}（{lastError}）" : "") +
-                     " — バックグラウンドで順次処理します。");
+        SetStatus(Locale.T("queued_fmt", enqueued) + (skipped > 0 ? Locale.T("skip_fmt", skipped) : "")
+                     + (failed > 0 ? Locale.T("fail_fmt", failed, lastError) : "") +
+                     Locale.T("bg_suffix"));
     }
 
     private async Task<string?> ResolveInputAsync(string input, CancellationToken token)
@@ -220,21 +220,21 @@ public sealed class LibrarySectionViewModel : ViewModelBase
         {
             var url = input.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? input : "https://" + input;
             if (_service.IsSupported(url)) return url;
-            SetStatus($"対応していないURLです（なろう / カクヨムのみ）: {input}");
+            SetStatus(Locale.T("unsupported_url_fmt", input));
             return null;
         }
 
-        SetStatus($"タイトルを検索中: {input}");
+        SetStatus(Locale.T("title_searching_fmt", input));
         var hits = await NovelSearchService.SearchAsync(input, 5, token);
         if (hits.Count == 0)
         {
-            SetStatus($"「{input}」に一致する作品が見つかりませんでした。");
+            SetStatus(Locale.T("no_match_fmt", input));
             return null;
         }
 
         var best = hits[0];
-        var others = hits.Count > 1 ? $"（他 {hits.Count - 1} 件の候補あり）" : "";
-        SetStatus($"「{input}」→ {best.Label} {others}");
+        var others = hits.Count > 1 ? Locale.T("others_fmt", hits.Count - 1) : "";
+        SetStatus(Locale.T("match_fmt", input, best.Label, others));
         return best.Url;
     }
 
@@ -261,7 +261,7 @@ public sealed class LibrarySectionViewModel : ViewModelBase
                     item?.SetCoverCandidateCount(images.Count);
                 });
             }
-            catch (Exception ex) { CoreLog.Ignored($"表紙候補を集められない（本処理には影響しない）: {workId}", ex); }
+            catch (Exception ex) { CoreLog.Ignored(Locale.T("cover_collect_fail_fmt", workId), ex); }
         });
     }
 
@@ -271,7 +271,7 @@ public sealed class LibrarySectionViewModel : ViewModelBase
         if (Queue == null || Items.Count == 0) return Task.CompletedTask;
         int enqueued = 0;
         foreach (var item in Items) if (EnqueueEntry(item, JobAction.Check)) enqueued++;
-        SetStatus($"更新チェックを {enqueued} 件キューに追加 — バックグラウンドで順次処理します。");
+        SetStatus(Locale.T("check_queued_fmt", enqueued));
         return Task.CompletedTask;
     }
 
@@ -280,10 +280,10 @@ public sealed class LibrarySectionViewModel : ViewModelBase
     {
         if (Queue == null) return Task.CompletedTask;
         var targets = Items.Where(i => i.HasUpdate).ToList();
-        if (targets.Count == 0) { SetStatus("更新が必要な作品はありません。"); return Task.CompletedTask; }
+        if (targets.Count == 0) { SetStatus(Locale.T("no_updates")); return Task.CompletedTask; }
         int enqueued = 0;
         foreach (var item in targets) if (EnqueueEntry(item, JobAction.Update)) enqueued++;
-        SetStatus($"更新を {enqueued} 件キューに追加 — バックグラウンドで順次処理します。");
+        SetStatus(Locale.T("update_queued_fmt", enqueued));
         return Task.CompletedTask;
     }
 
@@ -308,12 +308,12 @@ public sealed class LibrarySectionViewModel : ViewModelBase
         _cts = new CancellationTokenSource();
         try
         {
-            SetStatus("表紙変更のため再取得中…");
+            SetStatus(Locale.T("refetch_for_cover"));
             var picked = await ChooseCoverAsync(item, _cts.Token);
-            SetStatus(picked ? $"「{item.Title}」の表紙を変更しました。" : "表紙変更をキャンセルしました。");
+            SetStatus(picked ? Locale.T("cover_changed_fmt", item.Title) : Locale.T("cover_change_cancelled"));
         }
-        catch (OperationCanceledException) { SetStatus("中断しました。"); }
-        catch (Exception ex) { SetStatus("表紙変更失敗：" + ex.Message); }
+        catch (OperationCanceledException) { SetStatus(Locale.T("interrupted")); }
+        catch (Exception ex) { SetStatus(Locale.T("cover_change_fail") + ex.Message); }
         finally { EndBusy(); OnChanged(nameof(PickPendingCoversLabel)); }
     }
 
@@ -330,7 +330,7 @@ public sealed class LibrarySectionViewModel : ViewModelBase
             for (var i = 0; i < pending.Count; i++)
             {
                 _cts.Token.ThrowIfCancellationRequested();
-                SetStatus($"({i + 1}/{pending.Count}) 「{pending[i].Title}」の表紙を選択中…");
+                SetStatus(Locale.T("pick_cover_prog_fmt", i + 1, pending.Count, pending[i].Title));
                 try
                 {
                     if (await ChooseCoverAsync(pending[i], _cts.Token)) picked++;
@@ -339,10 +339,10 @@ public sealed class LibrarySectionViewModel : ViewModelBase
                 catch (OperationCanceledException) { throw; }
                 catch (Exception ex) { failed++; lastError = ex.Message; }
             }
-            SetStatus($"表紙を選択 {picked} 件" + (skipped > 0 ? $" / スキップ {skipped}" : "")
-                         + (failed > 0 ? $" / 失敗 {failed}（{lastError}）" : "") + "。");
+            SetStatus(Locale.T("covers_picked_fmt", picked) + (skipped > 0 ? Locale.T("skip_fmt", skipped) : "")
+                         + (failed > 0 ? Locale.T("fail_fmt", failed, lastError) : "") + Locale.T("period"));
         }
-        catch (OperationCanceledException) { SetStatus($"中断しました（表紙を選択 {picked} 件）。"); }
+        catch (OperationCanceledException) { SetStatus(Locale.T("interrupted_picked_fmt", picked)); }
         finally { EndBusy(); OnChanged(nameof(PickPendingCoversLabel)); }
     }
 
@@ -350,7 +350,7 @@ public sealed class LibrarySectionViewModel : ViewModelBase
     {
         var dlProgress = MakeDlProgress();
         var buildProgress = new Progress<string>(m => SetStatus("[EPUB] " + m));
-        item.IsBusy = true; item.BusyText = "再取得中…";
+        item.IsBusy = true; item.BusyText = Locale.T("refetching");
         try
         {
             var novel = await _service.DownloadAsync(item.Entry.Url, item.Entry.Options, dlProgress, ct);
@@ -365,7 +365,7 @@ public sealed class LibrarySectionViewModel : ViewModelBase
             };
             if (dlg.ShowDialog() != true) return false;
             var cover = dlg.Result?.Image;
-            item.IsBusy = true; item.BusyText = "再生成中…";
+            item.IsBusy = true; item.BusyText = Locale.T("regenerating");
             await Task.Run(() => _service.BuildAndRegister(novel, cover, item.Entry.Options, buildProgress));
             item.SetCoverCandidateCount(0);
             return true;
@@ -378,9 +378,9 @@ public sealed class LibrarySectionViewModel : ViewModelBase
     public Task ConvertXtcAsync(LibraryItemVm? item)
     {
         if (item == null || Queue == null) return Task.CompletedTask;
-        if (GetEpubParts(item).Count == 0) { SetStatus("EPUBファイルが見つかりません。先に更新してください。"); return Task.CompletedTask; }
-        if (EnqueueEntry(item, JobAction.Convert)) SetStatus($"XTC変換をキューに追加: {item.Title}");
-        else SetStatus($"「{item.Title}」はXTC変換がキュー済みです。");
+        if (GetEpubParts(item).Count == 0) { SetStatus(Locale.T("epub_not_found_update")); return Task.CompletedTask; }
+        if (EnqueueEntry(item, JobAction.Convert)) SetStatus(Locale.T("xtc_queued_fmt", item.Title));
+        else SetStatus(Locale.T("xtc_queued_item_fmt", item.Title));
         return Task.CompletedTask;
     }
 
@@ -388,10 +388,10 @@ public sealed class LibrarySectionViewModel : ViewModelBase
     {
         if (Queue == null) return Task.CompletedTask;
         var targets = Items.Where(i => GetEpubParts(i).Count > 0).ToList();
-        if (targets.Count == 0) { SetStatus("変換できるEPUBがありません。"); return Task.CompletedTask; }
+        if (targets.Count == 0) { SetStatus(Locale.T("no_convertible_epubs")); return Task.CompletedTask; }
         int enqueued = 0;
         foreach (var item in targets) if (EnqueueEntry(item, JobAction.Convert)) enqueued++;
-        SetStatus($"XTC一括変換 {enqueued} 件をキューに追加 — バックグラウンドで順次処理します。");
+        SetStatus(Locale.T("xtc_bulk_queued_fmt", enqueued));
         return Task.CompletedTask;
     }
 
@@ -408,9 +408,9 @@ public sealed class LibrarySectionViewModel : ViewModelBase
     public void OpenEpub(LibraryItemVm? item)
     {
         if (item == null) return;
-        if (!File.Exists(item.Entry.EpubPath)) { SetStatus("EPUBファイルが見つかりません。"); return; }
+        if (!File.Exists(item.Entry.EpubPath)) { SetStatus(Locale.T("epub_not_found_plain")); return; }
         try { Process.Start(new ProcessStartInfo(item.Entry.EpubPath) { UseShellExecute = true }); }
-        catch (Exception ex) { SetStatus("起動失敗：" + ex.Message); }
+        catch (Exception ex) { SetStatus(Locale.T("launch_fail_prefix") + ex.Message); }
     }
 
     public void OpenFolder(LibraryItemVm? item)
@@ -422,7 +422,7 @@ public sealed class LibrarySectionViewModel : ViewModelBase
             if (File.Exists(path)) Process.Start("explorer.exe", $"/select,\"{path}\"");
             else Process.Start("explorer.exe", $"\"{_settings.OutputFolder}\"");
         }
-        catch (Exception ex) { SetStatus("フォルダを開けません：" + ex.Message); }
+        catch (Exception ex) { SetStatus(Locale.T("folder_fail_prefix") + ex.Message); }
     }
 
     private void Remove(LibraryItemVm? item)
@@ -430,16 +430,16 @@ public sealed class LibrarySectionViewModel : ViewModelBase
         if (item == null) return;
         if (Queue != null && Queue.Jobs.Any(j => (j.State == JobState.Queued || j.State == JobState.Running) && JobMatches(j, item)))
         {
-            SetStatus($"「{item.Title}」はキュー中で待機/実行中のため削除できません。");
+            SetStatus(Locale.T("cannot_delete_fmt", item.Title));
             return;
         }
         var r = MessageBox.Show(
-            $"「{item.Title}」をライブラリから削除します。\n\n「はい」=EPUBファイルも削除\n「いいえ」=一覧からのみ削除（ファイルは残す）",
-            "削除の確認", MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
+            Locale.T("delete_confirm_fmt", item.Title),
+            Locale.T("confirm_delete"), MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
         if (r == MessageBoxResult.Cancel) return;
         _service.Remove(item.Entry, deleteFiles: r == MessageBoxResult.Yes);
         Items.Remove(item);
-        SetStatus($"「{item.Title}」を削除しました。");
+        SetStatus(Locale.T("deleted_fmt", item.Title));
     }
 
     private void Rename(LibraryItemVm? item)
@@ -449,9 +449,9 @@ public sealed class LibrarySectionViewModel : ViewModelBase
         {
             _service.RenameFiles(item.Entry, item.NameTemplateEdit);
             item.Refresh();
-            SetStatus($"「{item.Title}」のファイル名を変更しました。");
+            SetStatus(Locale.T("rename_ok_fmt", item.Title));
         }
-        catch (Exception ex) { SetStatus("ファイル名変更失敗：" + ex.Message); }
+        catch (Exception ex) { SetStatus(Locale.T("rename_fail_prefix") + ex.Message); }
     }
 
     private void CopyTitle(LibraryItemVm? item)
@@ -460,16 +460,16 @@ public sealed class LibrarySectionViewModel : ViewModelBase
         try
         {
             Clipboard.SetText(item.Title);
-            SetStatus($"「{item.Title}」をクリップボードにコピーしました。");
+            SetStatus(Locale.T("copy_ok_fmt", item.Title));
         }
-        catch (Exception ex) { SetStatus("コピー失敗：" + ex.Message); }
+        catch (Exception ex) { SetStatus(Locale.T("copy_fail_prefix") + ex.Message); }
     }
 
     private void OpenUrl(LibraryItemVm? item)
     {
         if (item == null || string.IsNullOrEmpty(item.Url)) return;
         try { Process.Start(new ProcessStartInfo(item.Url) { UseShellExecute = true }); }
-        catch (Exception ex) { SetStatus("ブラウザを開けません：" + ex.Message); }
+        catch (Exception ex) { SetStatus(Locale.T("browser_fail_prefix") + ex.Message); }
     }
 
     // ---- フォルダ・ソート ----
@@ -478,13 +478,13 @@ public sealed class LibrarySectionViewModel : ViewModelBase
     {
         var dlg = new OpenFolderDialog
         {
-            Title = "EPUBの保存先フォルダ",
+            Title = Locale.T("output_folder_label"),
             InitialDirectory = Directory.Exists(_settings.OutputFolder) ? _settings.OutputFolder : null,
         };
         if (dlg.ShowDialog() != true) return;
         _service.ChangeFolder(dlg.FolderName);
         ReloadItems();
-        SetStatus($"保存先を変更しました：{dlg.FolderName}（{Items.Count} 作品を読み込み）");
+        SetStatus(Locale.T("folder_changed_fmt", dlg.FolderName, Items.Count));
     }
 
     public void ReloadItems()
@@ -529,8 +529,8 @@ public sealed class LibrarySectionViewModel : ViewModelBase
             item.Refresh(); // 完了/失敗でバッジ（StatusText/HasUpdate）を再評価。既存itemはRefreshされず「更新あり」が残るバグ（E2E報告）
         item.QueueText = job.State switch
         {
-            JobState.Queued => $"{JobPanelVm.Label(job.Action)} 待ち",
-            JobState.Running => $"{JobPanelVm.Label(job.Action)} 実行中",
+            JobState.Queued => Locale.T("waiting_fmt", JobPanelVm.Label(job.Action)),
+            JobState.Running => Locale.T("running_fmt", JobPanelVm.Label(job.Action)),
             _ => "",
         };
     }

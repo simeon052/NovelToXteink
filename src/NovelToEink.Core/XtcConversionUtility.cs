@@ -25,7 +25,7 @@ public static class XtcConversionUtility
         }
         catch (Exception ex)
         {
-            throw new InvalidOperationException($"XTC変換中にエラーが発生しました: {ex.Message}", ex);
+            throw new InvalidOperationException(Locale.T("xtc_error_fmt", ex.Message), ex);
         }
     }
 
@@ -79,11 +79,11 @@ public static class XtcConversionUtility
         {
             var xtcPath = Path.ChangeExtension(epubPath, ".xtc");
             ConvertEpubToXtc(epubPath, xtcPath, BuildOptions(epubOptions));
-            Console.WriteLine($"XTCファイル生成完了: {xtcPath}");
+            Console.WriteLine(Locale.T("xtc_done_path", xtcPath));
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"XTC生成に失敗しました: {ex.Message}");
+            Console.WriteLine(Locale.T("xtc_fail_fmt", ex.Message));
         }
     }
 }
