@@ -34,6 +34,7 @@ public static partial class EpubBuilder
     /// <param name="nameTemplate">ファイル名テンプレート（{title}/{author}/{part}）</param>
     /// <param name="progress">進行状況報告</param>
     /// <param name="proofreading">テキスト校正サービス（null なら校正しない）</param>
+    /// <param name="titleOverride">ファイル名と dc:title に使うタイトル。null/空なら meta.Title にフォールバック。</param>
     /// <returns>生成結果</returns>
     public static List<BuildResult> BuildSplit(
         NovelDownload novel,
