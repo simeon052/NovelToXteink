@@ -30,14 +30,15 @@ public static class NameFormatter
             s = s[..^1];
         s = s.TrimEnd();
 
-        // Windows の予約名 → 先頭に _ を付ける
+        // Windows の予約名 → 先頭に _ を付ける（レビュー#9-M1: 拡張子前が予約名でも対象。
+        // Windows は "CON" 単独より "CON.txt" を予約名ファイルとして拒否するため stem で照合）
         var reserved = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
             "CON", "PRN", "AUX", "NUL",
             "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
             "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"
         };
-        if (reserved.Contains(s))
+        if (reserved.Contains(s) || (s.Contains('.') && reserved.Contains(s[..s.IndexOf('.')])))
             s = "_" + s;
 
         return string.IsNullOrEmpty(s) ? "novel" : s;
