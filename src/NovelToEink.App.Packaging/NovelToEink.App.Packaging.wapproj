@@ -29,7 +29,7 @@
     <OutputPath>bin\$(Configuration)\</OutputPath>
     <EntryPoint>NovelToEink.App.exe</EntryPoint>
     <PackageName>NovelToXteink</PackageName>
-    <PackageVersion>1.0.0.0</PackageVersion>
+    <PackageVersion>1.0.1.0</PackageVersion>
     <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
     <TargetPlatformVersion>10.0</TargetPlatformVersion>
     <!-- Partner Center re-signs MSIX after certification, so no signing here -->
@@ -49,10 +49,7 @@
     <AppxManifest Include="Package.appxmanifest">
       <SubType>Designer</SubType>
     </AppxManifest>
-    <Content Include="Assets\StoreLogo.png" />
-    <Content Include="Assets\Square44x44Logo.png" />
-    <Content Include="Assets\Square150x150Logo.png" />
-    <Content Include="Assets\Square310x310Logo.png" />
+    <Content Include="Assets\**\*.png" />
   </ItemGroup>
 
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" Condition="exists('$(VCTargetsPath)\Microsoft.Cpp.Default.props')" />

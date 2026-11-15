@@ -7,7 +7,7 @@
   <Identity
     Name="31156Simeon052.NovelToXteink"
     Publisher="CN=82D27054-24F7-47CD-ACC6-63614C30CAA4"
-    Version="1.0.0.0" />
+    Version="1.0.1.0" />
 
   <Properties>
     <DisplayName>NovelToXteink</DisplayName>
@@ -40,8 +40,8 @@
         <uap:DefaultTile
           ShortName="NovelToXteink"
           Wide310x150Logo="Assets\Wide310x150Logo.png"
-          Square71x71Logo="Assets\Square150x150Logo.png"
-          Square310x310Logo="Assets\Square310x310Logo.png" />
+          Square71x71Logo="Assets\SmallTile.png"
+          Square310x310Logo="Assets\LargeTile.png" />
       </uap:VisualElements>
     </Application>
   </Applications>
