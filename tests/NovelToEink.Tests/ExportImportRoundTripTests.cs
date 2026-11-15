@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Xunit;
 using NovelToEink.Core;
+using NovelToEink.Xtc;
 
 namespace NovelToEink.Tests;
 
@@ -55,17 +56,46 @@ public class ExportImportRoundTripTests
     [Fact]
     public void RoundTrip_PreservesSettingsViaApply()
     {
-        var settings = new AppSettings();
+        // レビュー#16-M1: 既定値と異なる値を設定して往復を実際に検証する。
+        // OutputFolder は SettingsMap 外（エクスポート/適用されない）ため検証対象外。
+        var settings = new AppSettings
+        {
+            Vertical = false,
+            GrayscaleImages = false,
+            EnableProofreading = false,
+            RequestDelayMs = 3000,
+            IsDarkMode = true,
+            GenerateXtc = true,
+            XtcDevice = XteinkDevice.X3,
+            XtcFontFile = "NotoSansJP.ttf",
+            XtcFontSize = 28,
+            XtcTextThreshold = 180,
+            XtcPaddingTop = 10,
+            XtcPaddingBottom = 20,
+            XtcPaddingLeft = 30,
+            XtcPaddingRight = 40,
+        };
 
         var json = LibraryExportImport.SerializeExport("1.0.0", [], settings);
         var (_, imported) = LibraryExportImport.DeserializeExport(json);
 
+        // 既定値から適用：非既定値がそのまま復元されること。
         var target = new AppSettings();
         LibraryExportImport.ApplyImportedSettings(target, imported);
 
-        Assert.Equal(settings.OutputFolder, target.OutputFolder);
         Assert.Equal(settings.Vertical, target.Vertical);
         Assert.Equal(settings.GrayscaleImages, target.GrayscaleImages);
+        Assert.Equal(settings.EnableProofreading, target.EnableProofreading);
+        Assert.Equal(settings.RequestDelayMs, target.RequestDelayMs);
+        Assert.Equal(settings.IsDarkMode, target.IsDarkMode);
+        Assert.Equal(settings.GenerateXtc, target.GenerateXtc);
         Assert.Equal(settings.XtcDevice, target.XtcDevice);
+        Assert.Equal(settings.XtcFontFile, target.XtcFontFile);
+        Assert.Equal(settings.XtcFontSize, target.XtcFontSize);
+        Assert.Equal(settings.XtcTextThreshold, target.XtcTextThreshold);
+        Assert.Equal(settings.XtcPaddingTop, target.XtcPaddingTop);
+        Assert.Equal(settings.XtcPaddingBottom, target.XtcPaddingBottom);
+        Assert.Equal(settings.XtcPaddingLeft, target.XtcPaddingLeft);
+        Assert.Equal(settings.XtcPaddingRight, target.XtcPaddingRight);
     }
 }

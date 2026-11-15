@@ -33,6 +33,7 @@ public static class LibraryExportImport
         ("EpisodesPerFile",       typeof(AppSettings).GetProperty(nameof(AppSettings.EpisodesPerFile))!,       typeof(int)),
         ("RequestDelayMs",        typeof(AppSettings).GetProperty(nameof(AppSettings.RequestDelayMs))!,        typeof(int)),
         ("IsDarkMode",            typeof(AppSettings).GetProperty(nameof(AppSettings.IsDarkMode))!,            typeof(bool)),
+        ("Language",              typeof(AppSettings).GetProperty(nameof(AppSettings.Language))!,              typeof(string)),
         // XTC 設定
         ("GenerateXtc",           typeof(AppSettings).GetProperty(nameof(AppSettings.GenerateXtc))!,           typeof(bool)),
         ("XtcDevice",             typeof(AppSettings).GetProperty(nameof(AppSettings.XtcDevice))!,             typeof(XteinkDevice)),
@@ -69,6 +70,7 @@ public static class LibraryExportImport
         public int EpisodesPerFile { get; set; }
         public int RequestDelayMs { get; set; }
         public bool IsDarkMode { get; set; }
+        public string Language { get; set; } = "auto";
         // XTC 設定
         public bool GenerateXtc { get; set; }
         public string XtcDevice { get; set; } = "";
@@ -125,12 +127,12 @@ public static class LibraryExportImport
         var root = doc.RootElement;
 
         if (root.ValueKind != JsonValueKind.Object)
-            throw new InvalidDataException("JSONのルート要素がオブジェクトではありません。");
+            throw new InvalidDataException(Locale.T("json_not_object"));
 
         if (!root.TryGetProperty("Library", out var libraryElement) || libraryElement.ValueKind != JsonValueKind.Array)
-            throw new InvalidDataException("Library 配列が見つからないか、形式が不正です。");
+            throw new InvalidDataException(Locale.T("library_array_bad"));
         if (!root.TryGetProperty("Settings", out var settingsObj) || settingsObj.ValueKind != JsonValueKind.Object)
-            throw new InvalidDataException("Settings オブジェクトが見つからないか、形式が不正です。");
+            throw new InvalidDataException(Locale.T("settings_object_bad"));
 
         var libraryJson = libraryElement.GetRawText();
         var library = JsonSerializer.Deserialize<List<LibraryEntry>>(libraryJson, JsonOpts) ?? [];

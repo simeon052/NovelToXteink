@@ -36,14 +36,14 @@ public sealed class SearchResultVm : ViewModelBase
     }
 
     public string Title => Result.Title;
-    public string Author => string.IsNullOrWhiteSpace(Result.Author) ? "(作者不明)" : Result.Author;
+    public string Author => string.IsNullOrWhiteSpace(Result.Author) ? Locale.T("author_unknown") : Result.Author;
     public string SiteLabel => Result.Site switch
     {
-        NovelSite.Syosetu => "なろう",
-        NovelSite.Kakuyomu => "カクヨム",
+        NovelSite.Syosetu => Locale.T("src_syosetu"),
+        NovelSite.Kakuyomu => Locale.T("src_kakuyomu"),
         _ => Result.Site.ToString(),
     };
-    public string EpisodesText => Result.EpisodeCount > 0 ? $"{Result.EpisodeCount}話" : "(不明)";
-    public string StatusText => Result.IsCompleted switch { true => "完結", false => "連載中", _ => "(不明)" };
+    public string EpisodesText => Result.EpisodeCount > 0 ? Locale.T("episodes_short_fmt", Result.EpisodeCount) : Locale.T("unknown_short");
+    public string StatusText => Result.IsCompleted switch { true => Locale.T("col_completed"), false => Locale.T("serializing"), _ => Locale.T("unknown_short") };
     public Brush StatusBrush => Result.IsCompleted == true ? CompletedBrush : OngoingBrush;
 }

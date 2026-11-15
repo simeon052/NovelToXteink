@@ -11,12 +11,12 @@ public sealed class JobPanelVm
         Title = title;
         StateLabel = job.State switch
         {
-            JobState.Queued => "待ち",
-            JobState.Running => "実行中",
-            JobState.Done => "完了",
-            JobState.Failed => "失敗",
-            JobState.Cancelled => "キャンセル",
-            JobState.Interrupted => "中断(再起動時)",
+            JobState.Queued => Locale.T("label_waiting"),
+            JobState.Running => Locale.T("label_running"),
+            JobState.Done => Locale.T("label_done"),
+            JobState.Failed => Locale.T("label_failed"),
+            JobState.Cancelled => Locale.T("CancelBtn"),
+            JobState.Interrupted => Locale.T("label_interrupted"),
             _ => job.State.ToString(),
         };
         Error = job.Error ?? "";
@@ -27,15 +27,15 @@ public sealed class JobPanelVm
     public string StateLabel { get; }
     public string Error { get; }
     public string Display => Error == ""
-        ? $"{ActionLabel}「{Title}」 — {StateLabel}"
-        : $"{ActionLabel}「{Title}」 — {StateLabel}: {Error}";
+        ? Locale.T("jobline_fmt", ActionLabel, Title, StateLabel)
+        : Locale.T("jobline_err_fmt", ActionLabel, Title, StateLabel, Error);
 
     public static string Label(JobAction action) => action switch
     {
-        JobAction.Check => "更新チェック",
-        JobAction.Download => "ダウンロード",
-        JobAction.Update => "更新",
-        JobAction.Convert => "XTC変換",
+        JobAction.Check => Locale.T("label_update_check"),
+        JobAction.Download => Locale.T("label_download"),
+        JobAction.Update => Locale.T("label_update"),
+        JobAction.Convert => Locale.T("label_xtc"),
         _ => action.ToString(),
     };
 }

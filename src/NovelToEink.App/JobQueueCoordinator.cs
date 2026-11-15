@@ -69,7 +69,7 @@ public sealed class JobQueueCoordinator
                 JobResult? r = null;
                 try { r = await Queue.ProcessNextAsync(_workerCts.Token); }
                 catch (OperationCanceledException) { break; }
-                catch (Exception ex) { CoreLog.Error($"キュージョブの想定外失敗: {Queue.CurrentJob?.Id}", ex); }
+                catch (Exception ex) { CoreLog.Error(Locale.T("job_unexpected_fail_fmt", Queue.CurrentJob?.Id), ex); }
 
                 if (r == null)
                 {
@@ -96,10 +96,10 @@ public sealed class JobQueueCoordinator
         var name = FindEntry(job)?.Title ?? job.Url;
         switch (job.State)
         {
-            case JobState.Running: _status?.Invoke($"[Queue] 実行中: {name}"); break;
-            case JobState.Done: _status?.Invoke($"[Queue] 完了: {name}"); break;
-            case JobState.Failed: _status?.Invoke($"[Queue] 失敗: {name} — {job.Error}"); break;
-            case JobState.Cancelled: _status?.Invoke($"[Queue] キャンセル: {name}"); break;
+            case JobState.Running: _status?.Invoke(Locale.T("queue_running_fmt", name)); break;
+            case JobState.Done: _status?.Invoke(Locale.T("queue_done_fmt", name)); break;
+            case JobState.Failed: _status?.Invoke(Locale.T("queue_fail_fmt", name, job.Error)); break;
+            case JobState.Cancelled: _status?.Invoke(Locale.T("queue_cancel_fmt", name)); break;
         }
     }
 

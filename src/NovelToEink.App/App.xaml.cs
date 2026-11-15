@@ -19,10 +19,13 @@ public partial class App : Application
             if (level == "ERROR" && Current?.MainWindow?.DataContext is MainViewModel vm)
                 Current.Dispatcher.BeginInvoke(() => vm.StatusText = text);
         };
+        // 言語: 既定はOSのUICulture。settings.json の Language（auto/ja/en）で上書き。
+        Locale.Override = AppSettings.Load().Language;
+        Locale.Changed += () => Current?.Dispatcher?.BeginInvoke(LocRegistry.Refresh);
         // レビューM-2: UIスレッドでの未処理例外でクラッシュしない（ログ＋ステータス表示）。
         DispatcherUnhandledException += (s, e) =>
         {
-            CoreLog.Error("未処理の例外", e.Exception);
+            CoreLog.Error(Locale.T("unhandled_exception"), e.Exception);
             e.Handled = true;
         };
         base.OnStartup(e);

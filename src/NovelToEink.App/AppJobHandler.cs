@@ -26,16 +26,16 @@ public sealed class AppJobHandler : IJobHandler
         if (!r.IsOk) return r;
 
         var entry = _c.FindEntry(job);
-        if (entry == null) return JobResult.Fail("エントリが見つかりません");
+        if (entry == null) return JobResult.Fail(Locale.T("entry_not_found"));
 
         var options = XtcConversionUtility.BuildOptions(_c.Settings.ToEpubOptions());
         var parts = entry.EpubParts.Count > 0 ? entry.EpubParts : new List<string> { entry.EpubPath };
         foreach (var epub in parts)
         {
             ct.ThrowIfCancellationRequested();
-            if (!File.Exists(epub)) return JobResult.Fail($"EPUBファイルが見つかりません: {epub}");
+            if (!File.Exists(epub)) return JobResult.Fail(Locale.T("EpubNotFoundFmt", epub));
             var progress = new Progress<XtcProgress>(p =>
-                _c.ReportProgress($"XTC変換: {p.ChapterIndex}/{p.ChapterCount}話 / {p.PagesEmitted}ページ"));
+                _c.ReportProgress(Locale.T("XtcProgressFmt", p.ChapterIndex, p.ChapterCount, p.PagesEmitted)));
             await XtcConversionUtility.ConvertEpubToXtcAsync(
                 epub, Path.ChangeExtension(epub, ".xtc"), options, progress, ct).ConfigureAwait(false);
         }

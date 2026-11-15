@@ -191,9 +191,9 @@ public sealed class LibraryService
     {
         var dlOpt = new DownloadOptions { RequestDelayMs = Settings.RequestDelayMs };
         using var service = new NovelDownloadService(dlOpt, _factory);
-        progress?.Report("メタデータ取得中...");
+        progress?.Report(Locale.T("fetching_meta2"));
         var meta = await service.GetMetadataAsync(entry.Url, ct);
-        progress?.Report("目次取得中...");
+        progress?.Report(Locale.T("fetching_toc2"));
         var toc = await service.GetTableOfContentsAsync(entry.Url, ct);
 
         ApplyTitle(entry, meta.Title);
@@ -301,7 +301,7 @@ public sealed class LibraryService
         {
             foreach (var path in entry.EpubParts.Where(File.Exists))
             {
-                progress?.Report($"パッチ中: {Path.GetFileName(path)}");
+                progress?.Report(Locale.T("patch_fmt", Path.GetFileName(path)));
                 try
                 {
                     entry.Options.WritingMode = WritingMode.Vertical;
@@ -309,7 +309,7 @@ public sealed class LibraryService
                 }
                 catch (Exception ex)
                 {
-                    progress?.Report($"スキップ: {Path.GetFileName(path)} ({ex.Message})");
+                    progress?.Report(Locale.T("skip_fmt", Path.GetFileName(path), ex.Message));
                 }
             }
         }

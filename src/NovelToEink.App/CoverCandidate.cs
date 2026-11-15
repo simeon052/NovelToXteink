@@ -20,7 +20,7 @@ public sealed class CoverCandidate
         Thumbnail = thumb;
     }
 
-    public static CoverCandidate None() => new(null, true, "表紙なし", null);
+    public static CoverCandidate None() => new(null, true, Locale.T("NoCover"), null);
 
     /// <summary>
     /// previewOptions を渡すとプレビューにグレースケール＋リサイズを適用する（EPUB生成と同じ見た目を確認できる）。
@@ -45,7 +45,7 @@ public sealed class CoverCandidate
             catch (Exception ex)
             {
                 // プレビュー用の再エンコードに失敗したら、元の画像でサムネイルを作る
-                CoreLog.Ignored("表紙候補のプレビュー変換に失敗（元画像で代用）", ex);
+                CoreLog.Ignored(Locale.T("cover_preview_fallback"), ex);
                 thumb = MakeThumb(img.Data);
             }
         }

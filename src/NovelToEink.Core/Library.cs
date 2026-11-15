@@ -145,6 +145,9 @@ public sealed class AppSettings
     public int EpisodesPerFile { get; set; } = 200;
     public bool IsDarkMode { get; set; } = false;
 
+    /// <summary>UI言語: "auto"（既定、OSのUICulture）/ "ja" / "en"。</summary>
+    public string Language { get; set; } = "auto";
+
     // XTC 出力
     /// <summary>EPUB 生成後に XTC も作るか。</summary>
     public bool GenerateXtc { get; set; } = false;

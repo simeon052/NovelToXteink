@@ -63,8 +63,8 @@ public sealed class ImportExportSectionViewModel : ViewModelBase
     {
         var dialog = new SaveFileDialog
         {
-            Title = "ライブラリをエクスポート",
-            Filter = "JSON ファイル (*.json)|*.json|すべてのファイル (*.*)|*.*",
+            Title = Locale.T("export_title"),
+            Filter = Locale.T("ExportFilter"),
             DefaultExt = ".json",
             FileName = $"library_export_{DateTime.Now:yyyyMMdd_HHmmss}.json"
         };
@@ -74,13 +74,13 @@ public sealed class ImportExportSectionViewModel : ViewModelBase
             try
             {
                 BusySetter?.Invoke(true);
-                StatusSetter?.Invoke("ライブラリをエクスポート中...");
+                StatusSetter?.Invoke(Locale.T("exporting"));
                 await Task.Run(() => _service.ExportLibrary(dialog.FileName));
-                StatusSetter?.Invoke($"✓ ライブラリをエクスポートしました: {Path.GetFileName(dialog.FileName)}");
+                StatusSetter?.Invoke(Locale.T("export_ok_fmt", Path.GetFileName(dialog.FileName)));
             }
             catch (Exception ex)
             {
-                StatusSetter?.Invoke($"✗ エクスポート失敗: {ex.Message}");
+                StatusSetter?.Invoke(Locale.T("export_fail_fmt", ex.Message));
             }
             finally
             {
@@ -95,8 +95,8 @@ public sealed class ImportExportSectionViewModel : ViewModelBase
     {
         var dialog = new OpenFileDialog
         {
-            Title = "ライブラリをインポート",
-            Filter = "JSON ファイル (*.json)|*.json|すべてのファイル (*.*)|*.*",
+            Title = Locale.T("import_title"),
+            Filter = Locale.T("ExportFilter"),
             DefaultExt = ".json"
         };
 
@@ -105,15 +105,15 @@ public sealed class ImportExportSectionViewModel : ViewModelBase
             try
             {
                 BusySetter?.Invoke(true);
-                StatusSetter?.Invoke("ライブラリをインポート中...");
+                StatusSetter?.Invoke(Locale.T("importing"));
 
                 var (importedLibrary, importedSettings) = await Task.Run(() => _service.ImportLibrary(dialog.FileName));
 
                 var result = MessageBox.Show(
-                    $"インポートする項目: {importedLibrary.Count} 作品\n\n" +
-                    "現在のライブラリに追加しますか？\n" +
-                    "（既存の作品は更新されます）",
-                    "ライブラリインポート確認",
+                    Locale.T("import_items_fmt", importedLibrary.Count) +
+                    Locale.T("add_to_current_q") +
+                    Locale.T("existing_updated"),
+                    Locale.T("import_confirm_title"),
                     MessageBoxButton.YesNo,
                     MessageBoxImage.Question);
 
@@ -162,8 +162,8 @@ public sealed class ImportExportSectionViewModel : ViewModelBase
 
                     // 設定をインポート（確認ダイアログ）
                     var applySettings = MessageBox.Show(
-                        "設定もインポートしますか？",
-                        "設定インポート確認",
+                        Locale.T("import_settings_q"),
+                        Locale.T("settings_confirm_title"),
                         MessageBoxButton.YesNo,
                         MessageBoxImage.Question);
 
@@ -183,12 +183,12 @@ public sealed class ImportExportSectionViewModel : ViewModelBase
                     }
 
                     LibraryReloader?.Invoke();
-                    StatusSetter?.Invoke($"✓ ライブラリをインポートしました ({importedLibrary.Count} 作品)");
+                    StatusSetter?.Invoke(Locale.T("import_ok_fmt", importedLibrary.Count));
                 }
             }
             catch (Exception ex)
             {
-                StatusSetter?.Invoke($"✗ インポート失敗: {ex.Message}");
+                StatusSetter?.Invoke(Locale.T("import_fail_fmt", ex.Message));
             }
             finally
             {
