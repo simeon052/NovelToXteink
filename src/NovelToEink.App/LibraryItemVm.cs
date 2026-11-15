@@ -47,8 +47,8 @@ public sealed class LibraryItemVm : ViewModelBase
             catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
             {
                 // レビューM-2: 保存失敗でクラッシュしない。編集状態を維持して再試行可能にし、エラーを報告。
-                CoreLog.Error("タイトル保存失敗", ex);
-                TitleEditError?.Invoke($"タイトル保存失敗: {ex.Message}");
+                CoreLog.Error(Locale.T("title_save_fail"), ex);
+                TitleEditError?.Invoke(Locale.T("title_save_fail_fmt", ex.Message));
                 return;
             }
         }
@@ -60,26 +60,26 @@ public sealed class LibraryItemVm : ViewModelBase
     public event Action<string>? TitleEditError;
 
     public void CancelTitleEdit() => EditingTitle = false;
-    public string Author => string.IsNullOrWhiteSpace(Entry.Author) ? "(作者不明)" : Entry.Author;
+    public string Author => string.IsNullOrWhiteSpace(Entry.Author) ? Locale.T("author_unknown") : Entry.Author;
     public string SiteLabel => Entry.Site switch
     {
-        NovelSite.Syosetu => "なろう",
-        NovelSite.Kakuyomu => "カクヨム",
+        NovelSite.Syosetu => Locale.T("src_syosetu"),
+        NovelSite.Kakuyomu => Locale.T("src_kakuyomu"),
         _ => Entry.Site.ToString(),
     };
-    public string EpisodesText => $"{Entry.EpisodeCount} 話";
+    public string EpisodesText => Locale.T("episodes_fmt", Entry.EpisodeCount);
     public string Url => Entry.Url;
 
-    public string PartsText => Entry.EpubParts.Count > 1 ? $"{Entry.EpubParts.Count} 分割" : "1 ファイル";
+    public string PartsText => Entry.EpubParts.Count > 1 ? Locale.T("parts_fmt", Entry.EpubParts.Count) : Locale.T("one_file");
 
     public bool IsCompleted => Entry.IsCompleted;
     public Visibility CompletedVisibility => Entry.IsCompleted ? Visibility.Visible : Visibility.Collapsed;
     public Visibility CoverPendingVisibility => Entry.CoverPending ? Visibility.Visible : Visibility.Collapsed;
 
-    public string SiteUpdatedText => Entry.SiteLastUpdated is { } d ? $"サイト最終更新: {d:yyyy/MM/dd}" : "";
+    public string SiteUpdatedText => Entry.SiteLastUpdated is { } d ? Locale.T("site_updated_fmt", d.ToString("yyyy/MM/dd")) : "";
 
-    public string LastUpdatedText => Entry.LastUpdatedAt is { } d ? $"変換: {d:yyyy/MM/dd HH:mm}" : "変換: -";
-    public string LastCheckedText => Entry.LastCheckedAt is { } d ? $"確認: {d:yyyy/MM/dd HH:mm}" : "確認: -";
+    public string LastUpdatedText => Entry.LastUpdatedAt is { } d ? Locale.T("converted_fmt", d.ToString("yyyy/MM/dd HH:mm")) : Locale.T("conversion_dash");
+    public string LastCheckedText => Entry.LastCheckedAt is { } d ? Locale.T("checked_fmt", d.ToString("yyyy/MM/dd HH:mm")) : Locale.T("confirm_dash");
 
     /// <summary>キュー表示（例:「更新チェック 待ち」）。該当ジョブがなければ空。</summary>
     public string QueueText { get => _queueText; set => Set(ref _queueText, value); }
@@ -91,10 +91,10 @@ public sealed class LibraryItemVm : ViewModelBase
 
     public string StatusText => _isBusy ? _busyText : Entry.Status switch
     {
-        UpdateStatus.UpToDate => "最新",
-        UpdateStatus.UpdateAvailable => "更新あり",
-        UpdateStatus.Error => "エラー",
-        _ => "未チェック",
+        UpdateStatus.UpToDate => Locale.T("latest"),
+        UpdateStatus.UpdateAvailable => Locale.T("update_available"),
+        UpdateStatus.Error => Locale.T("error_label"),
+        _ => Locale.T("unchecked"),
     };
 
     public Brush StatusBrush => _isBusy ? Brushes.SteelBlue : Entry.Status switch
@@ -112,7 +112,7 @@ public sealed class LibraryItemVm : ViewModelBase
     public bool HasCoverCandidates => _coverCandidateCount > 0;
 
     /// <summary>候補があることが分かるように「表紙」ボタンの表示を変える。</summary>
-    public string CoverButtonLabel => HasCoverCandidates ? $"表紙 ●{_coverCandidateCount}" : "表紙";
+    public string CoverButtonLabel => HasCoverCandidates ? Locale.T("cover_dot_fmt", _coverCandidateCount) : Locale.T("cover_simple");
 
     /// <summary>候補の取得完了を反映する。</summary>
     public void SetCoverCandidateCount(int count)
@@ -185,7 +185,7 @@ public sealed class LibraryItemVm : ViewModelBase
         }
         catch (Exception ex) when (ex is IOException or NotSupportedException or UnauthorizedAccessException or FileFormatException)
         {
-            CoreLog.Ignored($"サムネイルを読めない: {Entry.CoverImagePath}", ex);
+            CoreLog.Ignored(Locale.T("thumbnail_unreadable_fmt", Entry.CoverImagePath), ex);
             Thumbnail = null;
         }
     }

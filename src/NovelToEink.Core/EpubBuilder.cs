@@ -57,10 +57,10 @@ public static partial class EpubBuilder
         for (var part = 1; part <= partCount; part++)
         {
             var subset = all.Skip((part - 1) * size).Take(size).ToList();
-            var displayTitle = partCount > 1 ? $"{baseTitle}（{part}/{partCount}）" : baseTitle;
+            var displayTitle = partCount > 1 ? Locale.T("part_title_fmt", baseTitle, part, partCount) : baseTitle;
             var fileName = NameFormatter.Format(nameTemplate, baseTitle, meta.Author, part, partCount) + ".epub";
             var outPath = Path.Combine(outputDir, fileName);
-            progress?.Report($"分割 {part}/{partCount} を生成中…");
+            progress?.Report(Locale.T("part_gen_fmt", part, partCount));
             var result = BuildOne(meta, subset, novel.Images, cover, options, outPath, displayTitle, progress, part, partCount, proofreading);
             
             // Generate XTC if requested
@@ -141,9 +141,9 @@ public static partial class EpubBuilder
                     }
                     catch (Exception ex)
                     {
-                        CoreLog.Warn($"挿絵のエンコードに失敗: {url}", ex);
+                        CoreLog.Warn(Locale.T("illus_encode_fail_fmt", url), ex);
                         n--; // エンコード失敗。本文側でタグを除去する。
-                        progress?.Report($"挿絵のエンコードに失敗: {url}");
+                        progress?.Report(Locale.T("illus_encode_fail_fmt", url));
                     }
                 }
             }
@@ -158,7 +158,7 @@ public static partial class EpubBuilder
             {
                 // 画像デコード側の例外の種類は多岐にわたるため絞らず、表紙なしで続行する（原因はログに残す）
                 CoreLog.Warn("表紙のエンコードに失敗", ex);
-                progress?.Report("表紙のエンコードに失敗しました。表紙なしで続行します。");
+                progress?.Report(Locale.T("cover_encode_fail"));
             }
         }
 
@@ -188,7 +188,7 @@ public static partial class EpubBuilder
                 spine.Add($"    <itemref idref=\"{id}\"/>");
                 navItems.Add((ep.Ref.Index, ep.Ref.ChapterTitle, ep.Ref.Title, file));
                 if (i % 25 == 0 || i == episodes.Count - 1)
-                    progress?.Report($"XHTML生成 {i + 1}/{episodes.Count}");
+                    progress?.Report(Locale.T("xhtml_fmt", i + 1, episodes.Count));
             }
 
             // 表紙ページ
@@ -335,7 +335,7 @@ public static partial class EpubBuilder
             new XElement(XhtmlNs + "head",
                 new XElement(XhtmlNs + "meta",
                     new XAttribute("charset", "UTF-8")),
-                new XElement(XhtmlNs + "title", "表紙"),
+                new XElement(XhtmlNs + "title", Locale.T("cover_simple")),
                 new XElement(XhtmlNs + "link",
                     new XAttribute("rel", "stylesheet"),
                     new XAttribute("type", "text/css"),
@@ -357,7 +357,7 @@ public static partial class EpubBuilder
         var navItems = new XElement(XhtmlNs + "nav",
             new XAttribute(EpubNs + "type", "toc"),
             new XAttribute("id", "toc"),
-            new XElement(XhtmlNs + "h1", "目次"),
+            new XElement(XhtmlNs + "h1", Locale.T("toc_label")),
             BuildNavList(items));
 
         var html = new XElement(XhtmlNs + "html",
@@ -369,7 +369,7 @@ public static partial class EpubBuilder
             new XElement(XhtmlNs + "head",
                 new XElement(XhtmlNs + "meta",
                     new XAttribute("charset", "UTF-8")),
-                new XElement(XhtmlNs + "title", "目次")),
+                new XElement(XhtmlNs + "title", Locale.T("toc_label"))),
             new XElement(XhtmlNs + "body", navItems));
 
         var doc = new XDocument(

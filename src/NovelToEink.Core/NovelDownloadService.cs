@@ -2,7 +2,7 @@ namespace NovelToEink.Core;
 
 public sealed class DownloadProgress
 {
-    public required string Phase { get; init; }   // "メタ取得" "目次取得" "本文取得" "画像取得"
+    public required string Phase { get; init; }   // Locale.T("meta_fetch") Locale.T("fetch_toc") Locale.T("fetch_body") Locale.T("fetch_image")
     public int Current { get; init; }
     public int Total { get; init; }
     public string Message { get; init; } = "";
@@ -29,7 +29,7 @@ public sealed class NovelDownloadService : IDisposable, IGetScraper
     public INovelScraper GetScraper(string url)
         => _factory?.GetScraper(url)
            ?? _scrapers.FirstOrDefault(s => s.CanHandle(url))
-           ?? throw new NotSupportedException("対応していないURLです。なろう(ncode.syosetu.com)かカクヨム(kakuyomu.jp)のURLを指定してください。");
+           ?? throw new NotSupportedException(Locale.T("unsupported_url"));
 
     public Task<NovelMetadata> GetMetadataAsync(string url, CancellationToken ct = default)
         => GetScraper(url).GetMetadataAsync(url, ct);
@@ -65,11 +65,11 @@ public sealed class NovelDownloadService : IDisposable, IGetScraper
         if (cachedMeta != null)
         {
             meta = cachedMeta;
-            progress?.Report(new DownloadProgress { Phase = "メタ取得", Message = "キャッシュからメタ情報を取得しました" });
+            progress?.Report(new DownloadProgress { Phase = Locale.T("meta_fetch"), Message = Locale.T("cache_meta") });
         }
         else
         {
-            progress?.Report(new DownloadProgress { Phase = "メタ取得", Message = "作品情報を取得中…" });
+            progress?.Report(new DownloadProgress { Phase = Locale.T("meta_fetch"), Message = Locale.T("fetching_work_info") });
             meta = await scraper.GetMetadataAsync(url, ct).ConfigureAwait(false);
             // workInfo が null だったケース（念のため）はここでキャッシュを初期化
             if (cache == null && cacheRoot != null)
@@ -77,7 +77,7 @@ public sealed class NovelDownloadService : IDisposable, IGetScraper
             cache?.SetMetadata(meta);
         }
 
-        progress?.Report(new DownloadProgress { Phase = "目次取得", Message = "目次を取得中…" });
+        progress?.Report(new DownloadProgress { Phase = Locale.T("fetch_toc"), Message = Locale.T("fetching_toc") });
         var toc = await scraper.GetTableOfContentsAsync(url, ct).ConfigureAwait(false);
 
         if (downloadOptions.MaxEpisodes > 0 && toc.Count > downloadOptions.MaxEpisodes)
@@ -102,10 +102,10 @@ public sealed class NovelDownloadService : IDisposable, IGetScraper
                 if ((i + 1) % 50 == 0 || i == toc.Count - 1)
                     progress?.Report(new DownloadProgress
                     {
-                        Phase = "本文取得",
+                        Phase = Locale.T("fetch_body"),
                         Current = i + 1,
                         Total = toc.Count,
-                        Message = $"キャッシュ読込 {i + 1}/{toc.Count}",
+                        Message = Locale.T("cache_read_fmt", i + 1, toc.Count),
                     });
                 continue;
             }
@@ -113,7 +113,7 @@ public sealed class NovelDownloadService : IDisposable, IGetScraper
             // ネットワーク取得（1リクエストごとに報告）
             progress?.Report(new DownloadProgress
             {
-                Phase = "本文取得",
+                Phase = Locale.T("fetch_body"),
                 Current = i + 1,
                 Total = toc.Count,
                 Message = $"[{i + 1}/{toc.Count}] {ep.Title}",
@@ -126,10 +126,10 @@ public sealed class NovelDownloadService : IDisposable, IGetScraper
         if (cacheHits > 0)
             progress?.Report(new DownloadProgress
             {
-                Phase = "本文取得",
+                Phase = Locale.T("fetch_body"),
                 Current = toc.Count,
                 Total = toc.Count,
-                Message = $"完了：キャッシュ {cacheHits} 話、新規取得 {toc.Count - cacheHits} 話",
+                Message = Locale.T("fetch_done_fmt", cacheHits, toc.Count - cacheHits),
             });
 
         // --- 画像（公式表紙＋本文挿絵）の収集 ---
@@ -148,7 +148,7 @@ public sealed class NovelDownloadService : IDisposable, IGetScraper
                 }
                 else
                 {
-                    progress?.Report(new DownloadProgress { Phase = "画像取得", Message = "公式表紙を取得中…" });
+                    progress?.Report(new DownloadProgress { Phase = Locale.T("fetch_image"), Message = Locale.T("fetching_official_cover") });
                     var img = await TryDownloadImageAsync(meta.OfficialCoverUrl!, 0, true, ct).ConfigureAwait(false);
                     if (img != null)
                     {
@@ -180,10 +180,10 @@ public sealed class NovelDownloadService : IDisposable, IGetScraper
 
                 progress?.Report(new DownloadProgress
                 {
-                    Phase = "画像取得",
+                    Phase = Locale.T("fetch_image"),
                     Current = idx,
                     Total = urlFirstEpisode.Count,
-                    Message = $"挿絵 {idx}/{urlFirstEpisode.Count}",
+                    Message = Locale.T("illus_prog_fmt", idx, urlFirstEpisode.Count),
                 });
                 var imgNet = await TryDownloadImageAsync(u, epIndex, false, ct).ConfigureAwait(false);
                 if (imgNet != null)

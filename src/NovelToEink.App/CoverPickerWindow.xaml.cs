@@ -31,18 +31,18 @@ public partial class CoverPickerWindow : Window
 
         InitializeComponent();
         TitleText.Text = novel.Metadata.Title;
-        SubText.Text = $"{novel.Episodes.Count} 話 ／ 画像 {novel.Images.Count} 枚 — 表紙を選んでください";
+        SubText.Text = Locale.T("cover_picker_info", novel.Episodes.Count, novel.Images.Count);
 
         BuildCandidates(novel, options);
 
         if (prefetched is { Count: > 0 })
         {
             InsertSearchResults(prefetched);
-            SearchStatus.Text = $"取得済みの候補 {prefetched.Count} 件";
+            SearchStatus.Text = Locale.T("prefetched_fmt", prefetched.Count);
         }
         else
         {
-            SearchStatus.Text = "画像を検索中…";
+            SearchStatus.Text = Locale.T("SearchingMsg");
             Loaded += async (_, _) => await SearchAndAddAsync();
         }
 
@@ -60,7 +60,7 @@ public partial class CoverPickerWindow : Window
         {
             var img = images[i];
             Covers.Insert(insertAt + i,
-                CoverCandidate.FromImage(img, $"検索{i + 1}（{img.Width}×{img.Height}）", _options));
+                CoverCandidate.FromImage(img, Locale.T("search_img_fmt", i + 1, img.Width, img.Height), _options));
         }
     }
 
@@ -68,7 +68,7 @@ public partial class CoverPickerWindow : Window
     {
         var official = novel.Images.FirstOrDefault(i => i.IsOfficialCover);
         if (official != null)
-            Covers.Add(CoverCandidate.FromImage(official, "公式表紙", options));
+            Covers.Add(CoverCandidate.FromImage(official, Locale.T("official_cover"), options));
 
         // 文字生成表紙は必ず追加（フォント不備時は枠のみのフォールバック）
         ScrapedImage? genCover = null;
@@ -79,18 +79,18 @@ public partial class CoverPickerWindow : Window
         catch (Exception ex)
         {
             // フォント不備などで文字表紙を作れない場合は、簡易表紙で代える
-            CoreLog.Warn("文字で生成する表紙を作れません", ex);
+            CoreLog.Warn(Locale.T("text_cover_fail"), ex);
             try { genCover = ImageProcessor.GenerateMinimalCover(); }
-            catch (Exception ex2) { CoreLog.Error("簡易表紙も作れません", ex2); }
+            catch (Exception ex2) { CoreLog.Error(Locale.T("simple_cover_fail"), ex2); }
         }
         if (genCover != null)
-            Covers.Add(CoverCandidate.FromImage(genCover, "文字で生成", options));
+            Covers.Add(CoverCandidate.FromImage(genCover, Locale.T("TextGenerated"), options));
 
         var n = 0;
         foreach (var img in novel.Images.Where(i => !i.IsOfficialCover))
         {
             n++;
-            Covers.Add(CoverCandidate.FromImage(img, $"挿絵{n}（{img.EpisodeIndex}話 {img.Width}×{img.Height}）", options));
+            Covers.Add(CoverCandidate.FromImage(img, Locale.T("illus_fmt", n, img.EpisodeIndex, img.Width, img.Height), options));
         }
 
         Covers.Add(CoverCandidate.None());
@@ -106,8 +106,8 @@ public partial class CoverPickerWindow : Window
             InsertSearchResults(images);
 
             SearchStatus.Text = images.Count > 0
-                ? $"画像検索 {images.Count} 件追加"
-                : "画像検索：結果なし";
+                ? Locale.T("img_added_fmt", images.Count)
+                : Locale.T("img_no_results");
         }
         catch (OperationCanceledException)
         {
@@ -116,7 +116,7 @@ public partial class CoverPickerWindow : Window
         catch (Exception ex)
         {
             var msg = ex.Message;
-            SearchStatus.Text = $"画像検索エラー：{msg[..Math.Min(60, msg.Length)]}";
+            SearchStatus.Text = Locale.T("img_search_err_fmt", msg[..Math.Min(60, msg.Length)]);
         }
     }
 
@@ -137,8 +137,8 @@ public partial class CoverPickerWindow : Window
     {
         var dlg = new OpenFileDialog
         {
-            Title = "表紙画像を選ぶ",
-            Filter = "画像ファイル|*.jpg;*.jpeg;*.png;*.bmp;*.webp;*.gif|すべてのファイル|*.*",
+            Title = Locale.T("choose_cover_image"),
+            Filter = Locale.T("image_filter"),
         };
         if (dlg.ShowDialog() != true) return;
         AddImageFromPath(dlg.FileName);
@@ -173,7 +173,7 @@ public partial class CoverPickerWindow : Window
         {
             var bmpSrc = Clipboard.GetImage();
             if (bmpSrc != null)
-                AddImageFromBytes(BitmapSourceToJpeg(bmpSrc), "クリップボード");
+                AddImageFromBytes(BitmapSourceToJpeg(bmpSrc), Locale.T("clipboard"));
         }
     }
 
@@ -185,7 +185,7 @@ public partial class CoverPickerWindow : Window
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            CoreLog.Warn($"画像ファイルを読めません: {filePath}", ex);
+            CoreLog.Warn(Locale.T("image_unreadable_fmt", filePath), ex);
             return false;
         }
     }
@@ -194,12 +194,12 @@ public partial class CoverPickerWindow : Window
     {
         var img = ImageProcessor.TryLoad(bytes, $"file:{label}");
         if (img == null) return false;
-        var candidate = CoverCandidate.FromImage(img, $"手動追加: {label}", _options);
+        var candidate = CoverCandidate.FromImage(img, Locale.T("manual_fmt", label), _options);
         // "なし" の直前に挿入
         var insertAt = Math.Max(0, Covers.Count - 1);
         Covers.Insert(insertAt, candidate);
         CoverList.SelectedItem = candidate;
-        SearchStatus.Text = $"手動追加: {label} ({img.Width}×{img.Height})";
+        SearchStatus.Text = Locale.T("manual_size_fmt", label, img.Width, img.Height);
         return true;
     }
 

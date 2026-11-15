@@ -27,7 +27,7 @@ public sealed partial class KakuyomuScraper(HttpFetcher fetcher) : INovelScraper
     private static string ParseWorkId(string url)
     {
         var m = UrlRegex().Match(url);
-        if (!m.Success) throw new ArgumentException($"カクヨムのURLとして解釈できません: {url}");
+        if (!m.Success) throw new ArgumentException(Locale.T("kakuyomu_url_fail_fmt", url));
         return m.Groups[1].Value;
     }
 
@@ -39,7 +39,7 @@ public sealed partial class KakuyomuScraper(HttpFetcher fetcher) : INovelScraper
         var workId = ParseWorkId(url);
         var html = await _fetcher.GetStringAsync(WorkUrl(workId), ct).ConfigureAwait(false);
         var state = ExtractApolloState(html)
-            ?? throw new InvalidOperationException("カクヨムのページ構造を解析できませんでした(__NEXT_DATA__が見つかりません)。");
+            ?? throw new InvalidOperationException(Locale.T("kakuyomu_parse_fail"));
 
         // Work エンティティを特定。
         JsonElement work = default;
@@ -63,9 +63,9 @@ public sealed partial class KakuyomuScraper(HttpFetcher fetcher) : INovelScraper
                 if (prop.Name.StartsWith("Work:", StringComparison.Ordinal)) { work = prop.Value; found = true; break; }
             }
         }
-        if (!found) throw new InvalidOperationException("作品情報(Work)が見つかりませんでした。");
+        if (!found) throw new InvalidOperationException(Locale.T("work_not_found"));
 
-        var title = GetString(work, "title") ?? "（無題）";
+        var title = GetString(work, "title") ?? Locale.T("untitled");
         var description = GetString(work, "introduction") ?? GetString(work, "catchphrase") ?? "";
         var author = ResolveAuthor(state, work);
         var cover = FindCoverUrl(work);
@@ -141,7 +141,7 @@ public sealed partial class KakuyomuScraper(HttpFetcher fetcher) : INovelScraper
         {
             var epId = GetString(ep, "id");
             if (epId is null || !seen.Add(epId)) return;
-            var epTitle = GetString(ep, "title") ?? $"第{index + 1}話";
+            var epTitle = GetString(ep, "title") ?? Locale.T("episode_fmt", index + 1);
             index++;
             list.Add(new EpisodeRef
             {

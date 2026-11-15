@@ -7,6 +7,16 @@ Web小説をダウンロードし、**Xteink X3 / X4 Pro** のような非力な
 作品は URL でも**タイトル名**でも追加できる（タイトルの場合は検索して目次URLに解決する）。
 表紙画像は、スクレイピングした画像（公式表紙・本文中の挿絵）またはタイトルから自動生成した画像から選べる。
 
+## スクリーンショット
+
+英語UI（OS言語 English の場合の既定。設定で ja/en 切替可）:
+
+![Library (English UI)](docs/assets/screenshot-library-en.png)
+
+日本語UI:
+
+![Library (Japanese UI)](docs/assets/screenshot-library-ja.png)
+
 ## 構成
 
 | プロジェクト | 種別 | 役割 |
